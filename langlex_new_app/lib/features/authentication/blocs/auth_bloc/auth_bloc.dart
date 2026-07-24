@@ -10,6 +10,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CheckUserEvent>(_onCheckUser);
     on<RegisterEvent>(_onRegister);
     on<SendOtpEvent>(_onSendOtp);
+    on<ResendOtpEvent>(_onResendOtp);
     on<VerifyOtpEvent>(_onVerifyOtp);
     on<LogoutEvent>(_onLogout);
     on<UserChangedEvent>(_onUserChanged);
@@ -55,8 +56,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       emit(AuthUserExists(mobileNumber: mobileNumber));
-      await _repository.sendOtp(mobileNumber: mobileNumber);
-      emit(AuthOtpSent(mobileNumber: mobileNumber));
+      final resendAfterSeconds = await _repository.sendOtp(
+        mobileNumber: mobileNumber,
+      );
+      emit(
+        AuthOtpSent(
+          mobileNumber: mobileNumber,
+          resendAfterSeconds: resendAfterSeconds,
+        ),
+      );
     } on ApiException catch (error) {
       emit(AuthError(error.message));
     } catch (_) {
@@ -85,7 +93,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      await _repository.register(
+      final resendAfterSeconds = await _repository.register(
         fullName: fullName,
         mobileNumber: mobileNumber,
         school: school,
@@ -93,7 +101,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state: state,
         email: event.email,
       );
-      emit(AuthOtpSent(mobileNumber: mobileNumber));
+      emit(
+        AuthOtpSent(
+          mobileNumber: mobileNumber,
+          resendAfterSeconds: resendAfterSeconds,
+        ),
+      );
     } on ApiException catch (error) {
       emit(AuthError(error.message));
     } catch (_) {
@@ -111,12 +124,49 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      await _repository.sendOtp(mobileNumber: mobileNumber);
-      emit(AuthOtpSent(mobileNumber: mobileNumber));
+      final resendAfterSeconds = await _repository.sendOtp(
+        mobileNumber: mobileNumber,
+      );
+      emit(
+        AuthOtpSent(
+          mobileNumber: mobileNumber,
+          resendAfterSeconds: resendAfterSeconds,
+        ),
+      );
     } on ApiException catch (error) {
       emit(AuthError(error.message));
     } catch (_) {
       emit(const AuthError('Could not send OTP. Please try again.'));
+    }
+  }
+
+  Future<void> _onResendOtp(
+    ResendOtpEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final mobileNumber = event.mobileNumber.trim();
+    final validationError = _validateMobile(mobileNumber);
+    if (validationError != null) {
+      emit(AuthError(validationError));
+      return;
+    }
+
+    emit(const AuthLoading());
+    try {
+      final resendAfterSeconds = await _repository.resendOtp(
+        mobileNumber: mobileNumber,
+      );
+      emit(
+        AuthOtpSent(
+          mobileNumber: mobileNumber,
+          resendAfterSeconds: resendAfterSeconds,
+          isResend: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      emit(AuthError(error.message));
+    } catch (_) {
+      emit(const AuthError('Could not resend OTP. Please try again.'));
     }
   }
 

@@ -11,6 +11,7 @@ class AuthRepository {
   AuthRepository(this._dio);
 
   final Dio _dio;
+  static const defaultOtpResendSeconds = 30;
 
   Future<bool> checkUser({required String mobileNumber}) async {
     try {
@@ -26,7 +27,7 @@ class AuthRepository {
     }
   }
 
-  Future<void> register({
+  Future<int> register({
     required String fullName,
     required String mobileNumber,
     required String school,
@@ -35,7 +36,7 @@ class AuthRepository {
     String? email,
   }) async {
     try {
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         Endpoints.register,
         data: {
           'full_name': fullName,
@@ -47,18 +48,33 @@ class AuthRepository {
         },
         options: Options(extra: {DioClient.skipAuthKey: true}),
       );
+      return _resendSecondsFromResponse(response.data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
   }
 
-  Future<void> sendOtp({required String mobileNumber}) async {
+  Future<int> sendOtp({required String mobileNumber}) async {
     try {
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         Endpoints.sendOtp,
         data: {'mobile_number': mobileNumber},
         options: Options(extra: {DioClient.skipAuthKey: true}),
       );
+      return _resendSecondsFromResponse(response.data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<int> resendOtp({required String mobileNumber}) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        Endpoints.resendOtp,
+        data: {'mobile_number': mobileNumber},
+        options: Options(extra: {DioClient.skipAuthKey: true}),
+      );
+      return _resendSecondsFromResponse(response.data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -154,5 +170,15 @@ class AuthRepository {
   String? _nullable(String? value) {
     final text = value?.trim() ?? '';
     return text.isEmpty ? null : text;
+  }
+
+  int _resendSecondsFromResponse(Map<String, dynamic>? data) {
+    final value = data?['resend_after_seconds'];
+    if (value is num) return value.round().clamp(1, 300).toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) return parsed.clamp(1, 300).toInt();
+    }
+    return defaultOtpResendSeconds;
   }
 }

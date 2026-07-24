@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:langlex_new_app/core/colors.dart';
 
 enum LearningAccess { free, login, premium }
 
@@ -877,11 +878,11 @@ IconData _iconFor(String category, String title) {
 
 Color _accentFor(String category, String title) {
   final text = '$category $title'.toLowerCase();
-  if (text.contains('animal')) return const Color(0xFF6FA890);
-  if (text.contains('alphabet')) return const Color(0xFF9B6EE8);
-  if (text.contains('number')) return const Color(0xFF4A8F7A);
-  if (text.contains('color')) return const Color(0xFFDB9A3C);
-  if (text.contains('fruit')) return const Color(0xFFE05C8A);
-  if (text.contains('vegetable')) return const Color(0xFF5E9F6B);
-  return const Color(0xFF9B6EE8);
+  if (text.contains('animal')) return Appcolors.ksecondarycolor;
+  if (text.contains('alphabet')) return Appcolors.kprimarycolor;
+  if (text.contains('number')) return Appcolors.klearningCategoryNumber;
+  if (text.contains('color')) return Appcolors.kmetricInventory;
+  if (text.contains('fruit')) return Appcolors.klearningCategoryFruit;
+  if (text.contains('vegetable')) return Appcolors.klearningCategoryVegetable;
+  return Appcolors.kprimarycolor;
 }

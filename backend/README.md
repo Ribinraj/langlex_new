@@ -64,6 +64,17 @@ Static media is served from `backend/public/media` at `http://localhost:5050/med
 
 On startup, the server also creates missing tables and seeds dummy learning data for categories, courses, content, alphabets, quizzes, phonics, stories, and plans. It also creates dummy payment and subscription tables. It does not insert dummy users.
 
+The admin console uses a separate `admin_users` table and `/api/admin` route namespace. On startup, the backend creates one admin account when no account exists for `ADMIN_EMAIL`.
+
+Default local admin credentials:
+
+```text
+ADMIN_EMAIL=crisanttechnologies@gmail.com
+ADMIN_PASSWORD=M@njula1105
+```
+
+Change these values in production before the first backend startup.
+
 ## Media Migration
 
 Database media columns should use web paths such as:
@@ -108,3 +119,18 @@ When integrating a real gateway, keep the controller/service contract and replac
 - `GET /api/phonics`
 - `GET /api/stories`
 - `GET /api/plans`
+- `POST /api/admin/auth/login`
+- `GET /api/admin/auth/me`
+- `GET /api/admin/overview`
+- `GET /api/admin/users`
+- `GET /api/admin/users/:id`
+- `PUT /api/admin/users/:id`
+- `DELETE /api/admin/users/:id`
+- `GET /api/admin/payments`
+- `GET /api/admin/subscriptions`
+- `GET /api/admin/notifications`
+- `POST /api/admin/notifications`
+- `GET /api/admin/resources/:resource`
+- `POST /api/admin/resources/:resource`
+- `PUT /api/admin/resources/:resource/:id`
+- `DELETE /api/admin/resources/:resource/:id`

@@ -30,6 +30,19 @@ const findLatestActive = async (userId, otp) => {
   return rows[0] || null;
 };
 
+const findLatestByUser = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, user_id, otp, expires_at, is_verified, created_at
+     FROM otp_verifications
+     WHERE user_id = ?
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId],
+  );
+
+  return rows[0] || null;
+};
+
 const markVerified = async (id) => {
   await pool.execute(
     `UPDATE otp_verifications
@@ -42,5 +55,6 @@ const markVerified = async (id) => {
 module.exports = {
   create,
   findLatestActive,
+  findLatestByUser,
   markVerified,
 };

@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:langlex_new_app/core/appconstants.dart';
@@ -9,7 +13,6 @@ import 'package:langlex_new_app/core/routes/approutes.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_event.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
-import 'package:langlex_new_app/widgets/custom_background.dart';
 import 'package:langlex_new_app/widgets/custom_button.dart';
 import 'package:pinput/pinput.dart';
 
@@ -24,14 +27,16 @@ class VerifyOtpPage extends StatefulWidget {
 
 class _VerifyOtpPageState extends State<VerifyOtpPage>
     with SingleTickerProviderStateMixin {
+  static const int _defaultResendSeconds = 30;
+
   final TextEditingController _otpController = TextEditingController();
   final FocusNode _otpFocusNode = FocusNode();
 
   late final AnimationController _entranceController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _logoScaleAnimation;
-  late final Animation<double> _logoRotateAnimation;
+  Timer? _resendTimer;
+  int _resendSecondsRemaining = _defaultResendSeconds;
 
   @override
   void initState() {
@@ -55,35 +60,13 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
           ),
         );
 
-    _logoScaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.4,
-          end: 1.1,
-        ).chain(CurveTween(curve: Curves.easeOutBack)),
-        weight: 65,
-      ),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 1.1,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 35,
-      ),
-    ]).animate(_entranceController);
-
-    _logoRotateAnimation = Tween<double>(begin: -0.12, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-      ),
-    );
-
     _entranceController.forward();
+    _startResendTimer(_defaultResendSeconds);
   }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _otpController.dispose();
     _otpFocusNode.dispose();
     _entranceController.dispose();
@@ -100,26 +83,56 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
   }
 
   void _resend() {
+    if (_resendSecondsRemaining > 0) return;
+
     context.read<AuthBloc>().add(
-      SendOtpEvent(mobileNumber: widget.mobileNumber),
+      ResendOtpEvent(mobileNumber: widget.mobileNumber),
     );
+  }
+
+  void _startResendTimer(int seconds) {
+    _resendTimer?.cancel();
+
+    setState(() {
+      _resendSecondsRemaining = seconds.clamp(0, 300).toInt();
+    });
+
+    if (_resendSecondsRemaining == 0) return;
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _resendSecondsRemaining -= 1;
+      });
+
+      if (_resendSecondsRemaining <= 0) {
+        timer.cancel();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     ResponsiveUtils().init(context);
 
-    final isMobile = ResponsiveUtils.isMobile(context);
-
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           context.go(AppRoutes.dashboard);
         } else if (state is AuthOtpSent) {
+          _startResendTimer(state.resendAfterSeconds);
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(
-              const SnackBar(content: Text('OTP generated again.')),
+              SnackBar(
+                content: Text(
+                  state.isResend ? 'OTP sent again.' : 'OTP generated again.',
+                ),
+              ),
             );
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context)
@@ -130,94 +143,139 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
       builder: (context, state) {
         final isLoading = state is AuthLoading;
 
-        return Scaffold(
-          backgroundColor: Appcolors.kauthBackground,
-          body: KidsBubbleBackground(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: ResponsiveUtils.pagePadding(
-                  context,
-                  mobileHorizontalPercent: 7,
-                  tabletHorizontal: 48,
-                  desktopHorizontal: 48,
-                  top: isMobile ? ResponsiveUtils.hp(5) : 56,
-                  bottom: isMobile ? ResponsiveUtils.hp(5) : 56,
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
+          child: Scaffold(
+            extendBody: true,
+            backgroundColor: const Color(0xFFEAF0FF),
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    AppConstants.loginImage,
+                    fit: BoxFit.fill,
+                    alignment: Alignment.topCenter,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
-                child: ResponsiveUtils.constrainWidth(
-                  context: context,
-                  maxWidth: 460,
-                  child: AnimatedBuilder(
-                    animation: _entranceController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _fadeAnimation.value.clamp(0.0, 1.0),
-                        child: SlideTransition(
-                          position: _slideAnimation,
-                          child: child,
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const contentHeightEstimate = 386.0;
+                      final desiredTopGap = constraints.maxHeight * 0.25;
+                      final maxTopGap =
+                          constraints.maxHeight - contentHeightEstimate;
+                      final topGap = desiredTopGap
+                          .clamp(0.0, maxTopGap.clamp(0.0, 360.0))
+                          .toDouble();
+                      final contentWidth = math.min(
+                        constraints.maxWidth - 48,
+                        460.0,
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: contentWidth,
+                              child: AnimatedBuilder(
+                                animation: _entranceController,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: _fadeAnimation.value.clamp(
+                                      0.0,
+                                      1.0,
+                                    ),
+                                    child: SlideTransition(
+                                      position: _slideAnimation,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(height: topGap),
+                                    const _AuthHeader(
+                                      title: AppConstants.verifyOtpTitle,
+                                      subtitle: AppConstants.verifyOtpSubtitle,
+                                    ),
+                                    ResponsiveSizedBox.height(3.5),
+                                    _AuthCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const ResponsiveText(
+                                            AppConstants.otpLabel,
+                                            fontSize: 14,
+                                            weight: FontWeight.w700,
+                                            color: Appcolors.ktextgreycolor,
+                                            overflow: TextOverflow.visible,
+                                          ),
+                                          ResponsiveSizedBox.height(1.5),
+                                          _OtpInput(
+                                            controller: _otpController,
+                                            focusNode: _otpFocusNode,
+                                          ),
+                                          ResponsiveSizedBox.height(2.2),
+                                          _ResendOtpAction(
+                                            secondsRemaining:
+                                                _resendSecondsRemaining,
+                                            isLoading: isLoading,
+                                            onPressed: _resend,
+                                          ),
+                                          ResponsiveSizedBox.height(3),
+                                          CustomButton(
+                                            onTap: isLoading ? () {} : _verify,
+                                            text: isLoading
+                                                ? 'Verifying...'
+                                                : AppConstants.otpButtonLabel,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    ResponsiveSizedBox.height(2.5),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          context.go(AppRoutes.login),
+                                      icon: const Icon(
+                                        Icons.arrow_back_rounded,
+                                        color: Appcolors.kprimarycolor,
+                                        size: 18,
+                                      ),
+                                      label: const ResponsiveText(
+                                        AppConstants.loginAction,
+                                        fontSize: 14,
+                                        weight: FontWeight.w800,
+                                        color: Appcolors.kprimarycolor,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _AuthHeader(
-                          title: AppConstants.verifyOtpTitle,
-                          subtitle: AppConstants.verifyOtpSubtitle,
-                          logoScale: _logoScaleAnimation,
-                          logoRotate: _logoRotateAnimation,
-                        ),
-                        ResponsiveSizedBox.height(3.5),
-                        _AuthCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const ResponsiveText(
-                                AppConstants.otpLabel,
-                                fontSize: 14,
-                                weight: FontWeight.w700,
-                                color: Appcolors.ktextgreycolor,
-                                overflow: TextOverflow.visible,
-                              ),
-                              ResponsiveSizedBox.height(1.5),
-                              _OtpInput(
-                                controller: _otpController,
-                                focusNode: _otpFocusNode,
-                              ),
-                              ResponsiveSizedBox.height(2.2),
-                              _ResendOtpAction(
-                                onPressed: isLoading ? () {} : _resend,
-                              ),
-                              ResponsiveSizedBox.height(3),
-                              CustomButton(
-                                onTap: isLoading ? () {} : _verify,
-                                text: isLoading
-                                    ? 'Verifying...'
-                                    : AppConstants.otpButtonLabel,
-                              ),
-                            ],
-                          ),
-                        ),
-                        ResponsiveSizedBox.height(2.5),
-                        TextButton.icon(
-                          onPressed: () => context.go(AppRoutes.login),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: Appcolors.kprimarycolor,
-                            size: 18,
-                          ),
-                          label: const ResponsiveText(
-                            AppConstants.loginAction,
-                            fontSize: 14,
-                            weight: FontWeight.w800,
-                            color: Appcolors.kprimarycolor,
-                            overflow: TextOverflow.visible,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         );
@@ -284,51 +342,15 @@ class _OtpInput extends StatelessWidget {
 }
 
 class _AuthHeader extends StatelessWidget {
-  const _AuthHeader({
-    required this.title,
-    required this.subtitle,
-    required this.logoScale,
-    required this.logoRotate,
-  });
+  const _AuthHeader({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
-  final Animation<double> logoScale;
-  final Animation<double> logoRotate;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        AnimatedBuilder(
-          animation: logoScale,
-          builder: (context, child) {
-            return Transform.rotate(
-              angle: logoRotate.value,
-              child: Transform.scale(scale: logoScale.value, child: child),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Appcolors.kauthSurface,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Appcolors.kprimarycolor.withValues(alpha: 0.22),
-                  blurRadius: 30,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: Image.asset(
-              AppConstants.appLogo,
-              height: ResponsiveUtils.isMobile(context) ? 76 : 92,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        ResponsiveSizedBox.height(2.6),
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             colors: [Appcolors.kprimarycolor, Appcolors.kdashboardTeal],
@@ -384,12 +406,21 @@ class _AuthCard extends StatelessWidget {
 }
 
 class _ResendOtpAction extends StatelessWidget {
-  const _ResendOtpAction({required this.onPressed});
+  const _ResendOtpAction({
+    required this.secondsRemaining,
+    required this.isLoading,
+    required this.onPressed,
+  });
 
+  final int secondsRemaining;
+  final bool isLoading;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final canResend = secondsRemaining <= 0 && !isLoading;
+    final timerText = _formatTimer(secondsRemaining);
+
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -402,16 +433,25 @@ class _ResendOtpAction extends StatelessWidget {
           overflow: TextOverflow.visible,
         ),
         TextButton(
-          onPressed: onPressed,
-          child: const ResponsiveText(
-            AppConstants.resendOtpAction,
+          onPressed: canResend ? onPressed : null,
+          child: ResponsiveText(
+            canResend ? AppConstants.resendOtpAction : 'Resend in $timerText',
             fontSize: 14,
             weight: FontWeight.w800,
-            color: Appcolors.kprimarycolor,
+            color: canResend
+                ? Appcolors.kprimarycolor
+                : Appcolors.kdashboardMutedText,
             overflow: TextOverflow.visible,
           ),
         ),
       ],
     );
+  }
+
+  String _formatTimer(int seconds) {
+    final safeSeconds = seconds < 0 ? 0 : seconds;
+    final minutes = safeSeconds ~/ 60;
+    final remainingSeconds = safeSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

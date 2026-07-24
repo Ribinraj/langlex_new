@@ -432,6 +432,8 @@ class AppLocalizations {
     '$count शब्द उपलब्ध',
     '$count ಪದಗಳು ಲಭ್ಯ',
   );
+  String wordsCount(int count) =>
+      _text('$count words', '$count शब्द', '$count ಪದಗಳು');
   String coursePracticeDescription(int count, String category) => _text(
     '$count words for ${category.toLowerCase()} practice.',
     '$category अभ्यास के लिए $count शब्द।',

@@ -12,6 +12,7 @@ for (const key of required) {
 
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
+  host: process.env.HOST || undefined,
   port: Number(process.env.PORT || 5050),
   apiPrefix: process.env.API_PREFIX || '/api',
   corsOrigin: process.env.CORS_ORIGIN || '*',
@@ -31,5 +32,13 @@ module.exports = {
   },
   otp: {
     expiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES || 5),
+    resendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 30),
+    fixedMobileNumber: process.env.OTP_FIXED_MOBILE_NUMBER || '9946802969',
+    fixedCode: process.env.OTP_FIXED_CODE || '123456',
+  },
+  admin: {
+    email: process.env.ADMIN_EMAIL || 'crisanttechnologies@gmail.com',
+    password: process.env.ADMIN_PASSWORD || 'M@njula1105',
+    name: process.env.ADMIN_NAME || 'Crisant Technologies',
   },
 };

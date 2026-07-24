@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/urls.dart';
 
 class KidsLearningAssets {
@@ -10,6 +11,17 @@ class KidsLearningAssets {
   static const wordStarsImage = 'assets/images/kids_word_star.png';
   static const schoolBackgroundImage =
       'assets/images/kids_school_background.png';
+  static const kidsImage = 'assets/images/kids_image.png';
+  static const pencilIcon = 'assets/icons/pencil_icon.svg';
+  static const profileLionIcon = 'assets/icons/in-love.svg';
+  static const crownIcon = 'assets/icons/crown.svg';
+  static const trophyIcon = 'assets/icons/trophy.svg';
+  static const rainbowIcon = 'assets/icons/rainbow.svg';
+  static const questionIcon = 'assets/icons/question.svg';
+  static const mentalHealthIcon = 'assets/icons/mental-health.svg';
+  static const openBookIcon = 'assets/icons/open-book.svg';
+  static const starIcon = 'assets/icons/star.svg';
+  static const cloudIcon = 'assets/icons/cloud.svg';
 
   static const tapPopSound = 'sounds/kids_tap_pop.wav';
   static const successChimeSound = 'sounds/kids_lesson_success.wav';
@@ -34,6 +46,7 @@ class LearningMediaImage extends StatelessWidget {
     this.height,
     this.borderRadius = 18,
     this.fit = BoxFit.cover,
+    this.fallbackIcon = Icons.image_rounded,
   });
 
   final String? path;
@@ -42,6 +55,7 @@ class LearningMediaImage extends StatelessWidget {
   final double? height;
   final double borderRadius;
   final BoxFit fit;
+  final IconData fallbackIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -52,17 +66,25 @@ class LearningMediaImage extends StatelessWidget {
       child: Container(
         width: width,
         height: height,
-        color: accent.withValues(alpha: 0.12),
+        color: accent.withValues(alpha: 0.18),
         child: url.isEmpty
-            ? _FallbackImage(accent: accent)
+            ? _FallbackImage(accent: accent, icon: fallbackIcon)
             : Image.network(
                 url,
                 fit: fit,
-                errorBuilder: (_, _, _) => _FallbackImage(accent: accent),
+                errorBuilder: (_, _, _) =>
+                    _FallbackImage(accent: accent, icon: fallbackIcon),
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   if (wasSynchronouslyLoaded) return child;
+                  if (frame == null) {
+                    return _FallbackImage(
+                      accent: accent,
+                      icon: fallbackIcon,
+                      loading: true,
+                    );
+                  }
                   return AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
+                    opacity: 1,
                     duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
                     child: child,
@@ -70,7 +92,11 @@ class LearningMediaImage extends StatelessWidget {
                 },
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
-                  return _FallbackImage(accent: accent, loading: true);
+                  return _FallbackImage(
+                    accent: accent,
+                    icon: fallbackIcon,
+                    loading: true,
+                  );
                 },
               ),
       ),
@@ -233,21 +259,47 @@ class _LearningAudioButtonState extends State<LearningAudioButton> {
 }
 
 class _FallbackImage extends StatelessWidget {
-  const _FallbackImage({required this.accent, this.loading = false});
+  const _FallbackImage({
+    required this.accent,
+    required this.icon,
+    this.loading = false,
+  });
 
   final Color accent;
+  final IconData icon;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: loading
-          ? SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2, color: accent),
-            )
-          : Icon(Icons.image_rounded, color: accent, size: 30),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: Appcolors.kwhitecolor.withValues(alpha: 0.72),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: accent, size: 34),
+        ),
+        if (loading)
+          SizedBox(
+            width: 70,
+            height: 70,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: accent.withValues(alpha: 0.72),
+            ),
+          ),
+      ],
     );
   }
 }

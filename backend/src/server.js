@@ -6,8 +6,9 @@ const initializeDatabase = require('./infrastructure/database/initDatabase');
 const start = async () => {
   await initializeDatabase();
   await pool.query('SELECT 1');
-  app.listen(env.port, () => {
-    console.log(`LangLex API running on http://localhost:${env.port}`);
+  app.listen(env.port, env.host, () => {
+    const host = env.host || 'localhost';
+    console.log(`LangLex API running on http://${host}:${env.port}`);
   });
 };
 

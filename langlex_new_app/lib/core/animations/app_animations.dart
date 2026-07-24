@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:langlex_new_app/core/colors.dart';
 
 class AppMotion {
   const AppMotion._();
@@ -136,64 +137,12 @@ class _PressableScaleState extends State<PressableScale> {
   }
 }
 
-class GentleFloat extends StatefulWidget {
-  const GentleFloat({
-    super.key,
-    required this.child,
-    this.distance = 5,
-    this.duration = const Duration(milliseconds: 1800),
-  });
-
-  final Widget child;
-  final double distance;
-  final Duration duration;
-
-  @override
-  State<GentleFloat> createState() => _GentleFloatState();
-}
-
-class _GentleFloatState extends State<GentleFloat>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: widget.duration);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !motionDisabled(context)) {
-        _controller.repeat(reverse: true);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (motionDisabled(context)) return widget.child;
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final y = math.sin(_controller.value * math.pi) * -widget.distance;
-        return Transform.translate(offset: Offset(0, y), child: child);
-      },
-      child: widget.child,
-    );
-  }
-}
-
 class CelebrationBurst extends StatefulWidget {
   const CelebrationBurst({
     super.key,
     required this.trigger,
     required this.child,
-    this.color = const Color(0xFF9B6EE8),
+    this.color = Appcolors.kprimarycolor,
   });
 
   final int trigger;

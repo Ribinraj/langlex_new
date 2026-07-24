@@ -109,17 +109,14 @@ class DashboardActionTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                GentleFloat(
-                  distance: 3,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: surface,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(icon, color: accent, size: 26),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  child: Icon(icon, color: accent, size: 26),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

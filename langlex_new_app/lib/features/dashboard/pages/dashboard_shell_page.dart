@@ -9,16 +9,15 @@ import 'package:langlex_new_app/core/routes/approutes.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
 import 'package:langlex_new_app/features/dashboard/pages/home_page.dart';
+import 'package:langlex_new_app/features/dashboard/pages/learn_page.dart';
 import 'package:langlex_new_app/features/dashboard/pages/practice_page.dart';
 import 'package:langlex_new_app/features/dashboard/pages/profile_page.dart';
-import 'package:langlex_new_app/features/dashboard/pages/search_page.dart';
 import 'package:langlex_new_app/features/dashboard/widgets/custom_bottom_nav_bar.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_event.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
 import 'package:langlex_new_app/features/learning/pages/learning_setup_page.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
-import 'package:langlex_new_app/widgets/custom_background.dart';
 
 class DashboardShellPage extends StatefulWidget {
   const DashboardShellPage({super.key});
@@ -49,22 +48,35 @@ class _DashboardShellPageState extends State<DashboardShellPage> {
     final t = AppLocalizations(homeLanguage);
     final tabs = [
       _DashboardTab(
-        item: BottomNavBarItem(icon: Icons.school_rounded, label: t.learn),
+        item: BottomNavBarItem(
+          icon: Icons.home_rounded,
+          label: t.home,
+          assetPath: 'assets/icons/learn (1).svg',
+        ),
         page: const HomePage(),
       ),
       _DashboardTab(
-        item: BottomNavBarItem(icon: Icons.explore_rounded, label: t.library),
-        page: const SearchPage(),
+        item: BottomNavBarItem(
+          icon: Icons.menu_book_rounded,
+          label: t.learn,
+          assetPath: 'assets/icons/open-book.svg',
+        ),
+        page: const LearnPage(),
       ),
       _DashboardTab(
         item: BottomNavBarItem(
           icon: Icons.extension_rounded,
           label: t.practice,
+          assetPath: 'assets/icons/best-practice.svg',
         ),
         page: const PracticePage(),
       ),
       _DashboardTab(
-        item: BottomNavBarItem(icon: Icons.person_rounded, label: t.profile),
+        item: BottomNavBarItem(
+          icon: Icons.person_rounded,
+          label: t.profile,
+          assetPath: 'assets/icons/account.svg',
+        ),
         page: const ProfilePage(),
       ),
     ];
@@ -123,14 +135,12 @@ class _DashboardShellPageState extends State<DashboardShellPage> {
             ),
           ),
         ),
-        body: KidsBubbleBackground(
-          baseColor: Appcolors.kscreenWarmBackground,
-          child: SafeArea(
-            bottom: false,
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: [for (final tab in tabs) tab.page],
-            ),
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: [for (final tab in tabs) tab.page],
           ),
         ),
       ),

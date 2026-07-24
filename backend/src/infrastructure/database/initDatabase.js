@@ -1,5 +1,6 @@
 const env = require('../config/env');
 const { createBootstrapConnection, pool } = require('./db');
+const { hashPassword } = require('../../shared/utils/password');
 
 const databaseName = env.db.database.replace(/`/g, '``');
 
@@ -361,6 +362,39 @@ const createLearningTables = async () => {
         ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      full_name VARCHAR(120) NOT NULL,
+      email VARCHAR(191) NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      role VARCHAR(60) NOT NULL DEFAULT 'super_admin',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_login_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY admin_users_email_unique (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+};
+
+const seedAdminUser = async () => {
+  const email = env.admin.email.trim().toLowerCase();
+  const [rows] = await pool.execute(
+    `SELECT id FROM admin_users WHERE email = ? LIMIT 1`,
+    [email],
+  );
+
+  if (rows.length > 0) return;
+
+  const passwordHash = await hashPassword(env.admin.password);
+  await pool.execute(
+    `INSERT INTO admin_users (full_name, email, password_hash, role)
+     VALUES (?, ?, ?, 'super_admin')`,
+    [env.admin.name, email, passwordHash],
+  );
 };
 
 const upsertRows = async (tableName, columns, rows) => {
@@ -1146,6 +1180,7 @@ const initializeDatabase = async () => {
   await seedLearningData();
   await seedExpandedTestData();
   await seedMultilingualTestData();
+  await seedAdminUser();
 };
 
 module.exports = initializeDatabase;

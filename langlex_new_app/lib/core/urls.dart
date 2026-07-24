@@ -1,22 +1,14 @@
-import 'package:flutter/foundation.dart';
-
 class Endpoints {
   static const _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
+  static const _productionApiBaseUrl = 'https://langlex.crisant.com/api/';
 
   static String get baseUrl =>
-      _baseUrl(_apiBaseUrlOverride, 'http://$_developmentHost:5050/api/');
+      _baseUrl(_apiBaseUrlOverride, _productionApiBaseUrl);
 
   static String get mediaBaseUrl {
     final uri = Uri.parse(baseUrl);
     final path = uri.path.replaceFirst(RegExp(r'/api/?$'), '/');
     return uri.replace(path: path, query: null, fragment: null).toString();
-  }
-
-  static String get _developmentHost {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return '10.0.2.2';
-    }
-    return '127.0.0.1';
   }
 
   static String _baseUrl(String override, String fallback) {
@@ -27,6 +19,7 @@ class Endpoints {
   static const checkUser = 'auth/check-user';
   static const register = 'auth/register';
   static const sendOtp = 'auth/send-otp';
+  static const resendOtp = 'auth/resend-otp';
   static const verifyOtp = 'auth/verify-otp';
   static const logout = 'auth/logout';
   static const currentUser = 'user/profile';

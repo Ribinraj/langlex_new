@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:langlex_new_app/core/appconstants.dart';
@@ -18,8 +19,17 @@ void main() {
   ) async {
     await tester.pumpWidget(const LanglexNewApp());
 
-    expect(find.text('LangLex'), findsOneWidget);
+    expect(
+      find.image(const AssetImage(AppConstants.splashPageArt)),
+      findsOneWidget,
+    );
     expect(find.text('Getting your lessons ready...'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1300));
+    final progressBar = tester.widget<FractionallySizedBox>(
+      find.byType(FractionallySizedBox),
+    );
+    expect(progressBar.widthFactor, 1.0);
 
     await tester.pump(const Duration(milliseconds: 2200));
     await tester.pump(const Duration(milliseconds: 350));

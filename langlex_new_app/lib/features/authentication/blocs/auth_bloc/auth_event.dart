@@ -34,6 +34,12 @@ class SendOtpEvent extends AuthEvent {
   final String mobileNumber;
 }
 
+class ResendOtpEvent extends AuthEvent {
+  const ResendOtpEvent({required this.mobileNumber});
+
+  final String mobileNumber;
+}
+
 class VerifyOtpEvent extends AuthEvent {
   const VerifyOtpEvent({required this.mobileNumber, required this.otp});
 

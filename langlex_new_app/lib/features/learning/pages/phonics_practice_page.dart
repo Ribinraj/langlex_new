@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:langlex_new_app/core/animations/app_animations.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
@@ -214,14 +213,11 @@ class _PhonicsCard extends StatelessWidget {
       child: Column(
         children: [
           Expanded(
-            child: GentleFloat(
-              distance: 4,
-              child: LearningMediaImage(
-                path: item.imagePath,
-                accent: accent,
-                width: double.infinity,
-                borderRadius: 24,
-              ),
+            child: LearningMediaImage(
+              path: item.imagePath,
+              accent: accent,
+              width: double.infinity,
+              borderRadius: 24,
             ),
           ),
           const SizedBox(height: 18),

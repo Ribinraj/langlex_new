@@ -21,6 +21,14 @@ const sendOtp = async (req, res) => {
   });
 };
 
+const resendOtp = async (req, res) => {
+  const result = await authService.resendOtp(req.body.mobile_number);
+  res.json({
+    message: 'OTP generated again',
+    ...result,
+  });
+};
+
 const verifyOtp = async (req, res) => {
   const result = await authService.verifyOtp(req.body);
   res.json(result);
@@ -35,6 +43,7 @@ module.exports = {
   checkUser,
   register,
   sendOtp,
+  resendOtp,
   verifyOtp,
   logout,
 };

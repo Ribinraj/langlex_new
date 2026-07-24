@@ -25,9 +25,15 @@ class AuthUserNotExists extends AuthState {
 }
 
 class AuthOtpSent extends AuthState {
-  const AuthOtpSent({required this.mobileNumber});
+  const AuthOtpSent({
+    required this.mobileNumber,
+    this.resendAfterSeconds = 30,
+    this.isResend = false,
+  });
 
   final String mobileNumber;
+  final int resendAfterSeconds;
+  final bool isResend;
 }
 
 class AuthOtpVerified extends AuthState {

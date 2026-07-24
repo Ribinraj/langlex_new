@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 
 const env = require('./infrastructure/config/env');
 const authRoutes = require('./interfaces/http/routes/authRoutes');
+const adminRoutes = require('./interfaces/http/routes/adminRoutes');
 const learningRoutes = require('./interfaces/http/routes/learningRoutes');
 const notificationRoutes = require('./interfaces/http/routes/notificationRoutes');
 const paymentRoutes = require('./interfaces/http/routes/paymentRoutes');
@@ -18,6 +19,10 @@ const {
 } = require('./interfaces/http/middleware/errorHandler');
 
 const app = express();
+
+if (env.nodeEnv === 'production') {
+  app.set('trust proxy', 1);
+}
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: env.corsOrigin === '*' ? true : env.corsOrigin }));
@@ -45,6 +50,7 @@ app.use(
 );
 
 app.use(`${env.apiPrefix}/auth`, authRoutes);
+app.use(`${env.apiPrefix}/admin`, adminRoutes);
 app.use(`${env.apiPrefix}/payments`, paymentRoutes);
 app.use(`${env.apiPrefix}/subscriptions`, subscriptionRoutes);
 app.use(`${env.apiPrefix}/notifications`, notificationRoutes);

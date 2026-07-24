@@ -7,12 +7,12 @@ import 'package:langlex_new_app/features/learning/models/learning_models.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 
 const _playfulCourseColors = [
-  Color(0xFF3A86FF),
-  Color(0xFFFF6B6B),
-  Color(0xFF2EC4B6),
-  Color(0xFFFFC857),
-  Color(0xFF8B5CF6),
-  Color(0xFF5FAE6D),
+  Appcolors.klearningPlayfulBlue,
+  Appcolors.klearningPlayfulCoral,
+  Appcolors.klearningPlayfulTeal,
+  Appcolors.klearningPlayfulYellow,
+  Appcolors.klearningPlayfulPurple,
+  Appcolors.klearningPlayfulGreen,
 ];
 
 Color _playfulCourseColor(LearningCourse course) {
@@ -109,148 +109,331 @@ class LearningCourseCard extends StatelessWidget {
     final resolvedAccent = course.accent == Appcolors.ktransparent
         ? playfulAccent
         : course.accent;
+    final cardRadius = BorderRadius.circular(24);
+    final cardSurface = Color.alphaBlend(
+      resolvedAccent.withValues(alpha: 0.12),
+      Appcolors.kscreenWarmBackground,
+    );
 
     return PressableScale(
       enabled: onTap != null,
-      child: Material(
-        color: Appcolors.ktransparent,
-        child: InkWell(
-          onTap: onTap == null
-              ? null
-              : () {
-                  LearningAssetSound.playTap();
-                  onTap!();
-                },
-          borderRadius: BorderRadius.circular(22),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  playfulAccent.withValues(alpha: 0.15),
-                  Appcolors.kwhitecolor.withValues(alpha: 0.98),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: playfulAccent.withValues(alpha: 0.18)),
-              boxShadow: [
-                BoxShadow(
-                  color: playfulAccent.withValues(alpha: 0.10),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: cardRadius,
+          boxShadow: [
+            BoxShadow(
+              color: Appcolors.kblackcolor.withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GentleFloat(
-                      distance: 3,
-                      child: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: Appcolors.kwhitecolor.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: playfulAccent.withValues(alpha: 0.16),
+            BoxShadow(
+              color: resolvedAccent.withValues(alpha: 0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Material(
+          color: cardSurface,
+          borderRadius: cardRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap == null
+                ? null
+                : () {
+                    LearningAssetSound.playTap();
+                    onTap!();
+                  },
+            borderRadius: cardRadius,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: cardSurface,
+                borderRadius: cardRadius,
+                border: Border.all(
+                  color: resolvedAccent.withValues(alpha: 0.42),
+                  width: 1.25,
+                ),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 430;
+                  final imageWidth = compact ? 92.0 : 126.0;
+                  final imageHeight = compact ? 106.0 : 142.0;
+                  final imageRadius = compact ? 20.0 : 24.0;
+                  final contentPadding = compact
+                      ? const EdgeInsets.fromLTRB(22, 18, 14, 18)
+                      : const EdgeInsets.fromLTRB(28, 22, 20, 22);
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        width: compact ? 118 : 170,
+                        height: compact ? 82 : 118,
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _CourseDecorPainter(color: resolvedAccent),
                           ),
                         ),
-                        child: course.imagePath == null
-                            ? Icon(course.icon, color: resolvedAccent, size: 28)
-                            : LearningMediaImage(
-                                path: course.imagePath,
-                                accent: resolvedAccent,
-                                borderRadius: 18,
+                      ),
+                      Padding(
+                        padding: contentPadding,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: imageWidth,
+                              height: imageHeight,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned.fill(
+                                    child: LearningMediaImage(
+                                      path: course.imagePath,
+                                      accent: resolvedAccent,
+                                      width: imageWidth,
+                                      height: imageHeight,
+                                      borderRadius: imageRadius,
+                                      fallbackIcon: course.icon,
+                                    ),
+                                  ),
+                                ],
                               ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ResponsiveText(
-                            course.title,
-                            fontSize: 16,
-                            weight: FontWeight.w900,
-                            color: Appcolors.ktextdark,
-                            overflow: TextOverflow.visible,
-                          ),
-                          const SizedBox(height: 5),
-                          ResponsiveText(
-                            '${course.language} • ${course.level}',
-                            fontSize: 12,
-                            weight: FontWeight.w700,
-                            color: Appcolors.kdashboardMutedText,
-                            overflow: TextOverflow.visible,
-                          ),
-                        ],
-                      ),
-                    ),
-                    LearningAccessPill(
-                      access: course.access,
-                      homeLanguage: homeLanguage,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                ResponsiveText(
-                  course.words.isEmpty
-                      ? t.emptyLesson
-                      : t.coursePracticeDescription(
-                          course.words.length,
-                          course.category,
+                            ),
+                            SizedBox(width: compact ? 14 : 18),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: ResponsiveText(
+                                          course.title,
+                                          fontSize: compact ? 18 : 21,
+                                          weight: FontWeight.w900,
+                                          color: Appcolors.ktextdark,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.visible,
+                                        ),
+                                      ),
+                                      SizedBox(width: compact ? 8 : 14),
+                                      LearningAccessPill(
+                                        access: course.access,
+                                        homeLanguage: homeLanguage,
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: compact ? 7 : 8),
+                                  ResponsiveText(
+                                    '${course.language} • ${course.level}',
+                                    fontSize: compact ? 12.5 : 14,
+                                    weight: FontWeight.w700,
+                                    color: Appcolors.kdashboardMutedText,
+                                    maxLines: 1,
+                                  ),
+                                  SizedBox(height: compact ? 14 : 20),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _CourseChipWrap(
+                                          wordsLabel: course.words.isEmpty
+                                              ? t.contentPending
+                                              : t.wordsCount(
+                                                  course.words.length,
+                                                ),
+                                          listenLabel: t.listen,
+                                          wordsColor: resolvedAccent,
+                                          listenColor: playfulAccent,
+                                          compact: compact,
+                                        ),
+                                      ),
+                                      SizedBox(width: compact ? 6 : 8),
+                                      _CourseArrowButton(
+                                        color: resolvedAccent,
+                                        size: compact ? 40 : 50,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                  fontSize: 12.5,
-                  weight: FontWeight.w600,
-                  color: Appcolors.kdashboardMutedText,
-                  maxLines: 2,
-                  overflow: TextOverflow.visible,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    _CourseInfoChip(
-                      icon: Icons.auto_stories_rounded,
-                      label: course.words.isEmpty
-                          ? t.contentPending
-                          : t.wordsAvailable(course.words.length),
-                      color: resolvedAccent,
-                    ),
-                    const SizedBox(width: 8),
-                    _CourseInfoChip(
-                      icon: Icons.graphic_eq_rounded,
-                      label: t.listen,
-                      color: playfulAccent,
-                    ),
-                    const Spacer(),
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Appcolors.kwhitecolor.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        color: playfulAccent,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CourseDecorPainter extends CustomPainter {
+  const _CourseDecorPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cloudPaint = Paint()
+      ..color = color.withValues(alpha: 0.22)
+      ..style = PaintingStyle.fill;
+    final dashPaint = Paint()
+      ..color = color.withValues(alpha: 0.36)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(
+      Offset(size.width * 0.70, size.height * 1.02),
+      size.width * 0.24,
+      cloudPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.88, size.height * 0.92),
+      size.width * 0.24,
+      cloudPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 1.04, size.height * 0.72),
+      size.width * 0.30,
+      cloudPaint,
+    );
+
+    final path = Path()
+      ..moveTo(size.width * 0.02, size.height * 0.82)
+      ..quadraticBezierTo(
+        size.width * 0.30,
+        size.height * 0.48,
+        size.width * 0.53,
+        size.height * 0.58,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.74,
+        size.height * 0.66,
+        size.width * 0.98,
+        size.height * 0.26,
+      );
+    _drawDashedPath(canvas, path, dashPaint);
+    _drawLoop(
+      canvas,
+      Offset(size.width * 0.30, size.height * 0.58),
+      size.width * 0.08,
+      dashPaint,
+    );
+    _drawLoop(
+      canvas,
+      Offset(size.width * 0.70, size.height * 0.37),
+      size.width * 0.09,
+      dashPaint,
+    );
+  }
+
+  void _drawLoop(Canvas canvas, Offset center, double radius, Paint paint) {
+    final loop = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    _drawDashedPath(canvas, loop, paint);
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      const dash = 7.0;
+      const gap = 6.0;
+      while (distance < metric.length) {
+        final next = (distance + dash).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CourseDecorPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _CourseArrowButton extends StatelessWidget {
+  const _CourseArrowButton({required this.color, this.size = 54});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.18), width: 2),
+      ),
+      alignment: Alignment.center,
+      child: Container(
+        width: size - 12,
+        height: size - 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Icon(
+          Icons.chevron_right_rounded,
+          color: Appcolors.kwhitecolor,
+          size: size * 0.58,
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseChipWrap extends StatelessWidget {
+  const _CourseChipWrap({
+    required this.wordsLabel,
+    required this.listenLabel,
+    required this.wordsColor,
+    required this.listenColor,
+    required this.compact,
+  });
+
+  final String wordsLabel;
+  final String listenLabel;
+  final Color wordsColor;
+  final Color listenColor;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 6,
+          child: _CourseInfoChip(
+            icon: Icons.auto_stories_rounded,
+            label: wordsLabel,
+            color: wordsColor,
+            compact: compact,
+          ),
+        ),
+        SizedBox(width: compact ? 6 : 10),
+        Expanded(
+          flex: 5,
+          child: _CourseInfoChip(
+            icon: Icons.graphic_eq_rounded,
+            label: listenLabel,
+            color: listenColor,
+            compact: compact,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -260,38 +443,45 @@ class _CourseInfoChip extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    required this.compact,
   });
 
   final IconData icon;
   final String label;
   final Color color;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 5),
-            Flexible(
+    return Container(
+      constraints: BoxConstraints(minHeight: compact ? 30 : 34),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 12,
+        vertical: compact ? 6 : 8,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: compact ? 15 : 18),
+          SizedBox(width: compact ? 4 : 6),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: ResponsiveText(
                 label,
-                fontSize: 10.5,
+                fontSize: compact ? 10.6 : 12,
                 weight: FontWeight.w900,
                 color: color,
                 maxLines: 1,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -383,7 +573,7 @@ class LearningMetricTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GentleFloat(distance: 2, child: Icon(icon, color: color, size: 22)),
+            Icon(icon, color: color, size: 22),
             const SizedBox(height: 10),
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: double.tryParse(value) ?? 0),

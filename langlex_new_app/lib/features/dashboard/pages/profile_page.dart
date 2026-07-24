@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:langlex_new_app/core/animations/app_animations.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
+import 'package:langlex_new_app/core/responsiveutils.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_event.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
@@ -13,6 +16,7 @@ import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_b
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
 import 'package:langlex_new_app/features/learning/models/learning_models.dart';
 import 'package:langlex_new_app/features/learning/pages/learning_setup_page.dart';
+import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 import 'package:langlex_new_app/features/payments/pages/payment_checkout_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -26,34 +30,283 @@ class ProfilePage extends StatelessWidget {
             ? state.catalog.setup.primaryLanguage
             : 'English';
         final t = AppLocalizations(homeLanguage);
+        final catalog = state is LearningLoaded ? state.catalog : null;
 
-        return DashboardPageLayout(
-          children: [
-            DashboardHeader(title: t.profile, subtitle: t.profileSubtitle),
-            ResponsiveSizedBox.height(3),
-            _ProfileSummaryCard(t: t),
-            ResponsiveSizedBox.height(2.4),
-            _EditProfileTile(t: t, homeLanguage: homeLanguage),
-            ResponsiveSizedBox.height(2.4),
-            _LearningProgressCard(t: t),
-            ResponsiveSizedBox.height(2.4),
-            _UpgradePlanTile(t: t, homeLanguage: homeLanguage),
-            ResponsiveSizedBox.height(2.4),
-            _ProfileDetailsCard(t: t),
-            ResponsiveSizedBox.height(1.6),
-            DashboardActionTile(
-              icon: Icons.logout_rounded,
-              title: t.logout,
-              subtitle: t.signOutSubtitle,
-              accent: Appcolors.kredcolor,
-              surface: Appcolors.kmetricLowStockSurface,
-              onTap: () => context.read<AuthBloc>().add(const LogoutEvent()),
-            ),
-          ],
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 132),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ProfileHeroSection(t: t),
+              Transform.translate(
+                offset: const Offset(0, -62),
+                child: Padding(
+                  padding: ResponsiveUtils.pagePadding(
+                    context,
+                    mobileHorizontalPercent: 6,
+                    tabletHorizontal: 42,
+                    desktopHorizontal: 56,
+                  ).copyWith(top: 0),
+                  child: ResponsiveUtils.constrainWidth(
+                    context: context,
+                    maxWidth: 680,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ProfileSummaryCard(t: t),
+                        ResponsiveSizedBox.height(1.4),
+                        _EditProfileTile(t: t, homeLanguage: homeLanguage),
+                        ResponsiveSizedBox.height(1.4),
+                        _LearningProgressCard(t: t, catalog: catalog),
+                        ResponsiveSizedBox.height(1.4),
+                        _UpgradePlanTile(t: t, homeLanguage: homeLanguage),
+                        ResponsiveSizedBox.height(1.4),
+                        _ProfileDetailsCard(t: t),
+                        ResponsiveSizedBox.height(1.4),
+                        DashboardActionTile(
+                          icon: Icons.logout_rounded,
+                          title: t.logout,
+                          subtitle: t.signOutSubtitle,
+                          accent: Appcolors.kredcolor,
+                          surface: Appcolors.kmetricLowStockSurface,
+                          onTap: () =>
+                              context.read<AuthBloc>().add(const LogoutEvent()),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
+}
+
+class _ProfileHeroSection extends StatelessWidget {
+  const _ProfileHeroSection({required this.t});
+
+  final AppLocalizations t;
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final compact = width < 390;
+        final contentWidth = width > 680 ? 680.0 : width;
+        final sideInset = ((width - contentWidth) / 2) + (compact ? 22 : 28);
+        final heroHeight = topInset + (compact ? 208.0 : 226.0);
+        final mascotSize = compact ? 118.0 : 142.0;
+
+        return SizedBox(
+          height: heroHeight,
+          width: double.infinity,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Appcolors.klibrarySkyTop,
+                        Appcolors.klibrarySkyMiddle,
+                        Appcolors.klibrarySkyBottom,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: -56,
+                bottom: 82,
+                child: _ProfileCloudAsset(width: 136, opacity: 0.96),
+              ),
+              Positioned(
+                right: -54,
+                bottom: 88,
+                child: _ProfileCloudAsset(width: 142, opacity: 0.98),
+              ),
+              Positioned(
+                right: sideInset + mascotSize - 10,
+                top: topInset + 52,
+                child: _ProfileCloudAsset(width: 58, opacity: 0.54),
+              ),
+              Positioned(
+                right: sideInset - 10,
+                top: topInset + 22,
+                child: SvgPicture.asset(
+                  KidsLearningAssets.profileLionIcon,
+                  width: mascotSize,
+                  height: mascotSize,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              Positioned(
+                right: sideInset + mascotSize - 20,
+                top: topInset + 32,
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: Appcolors.kgoalSparkle,
+                ),
+              ),
+              Positioned(
+                right: sideInset - 12,
+                top: topInset + 34,
+                child: Icon(
+                  Icons.favorite_rounded,
+                  size: compact ? 18 : 21,
+                  color: Appcolors.kdashboardPink.withValues(alpha: 0.72),
+                ),
+              ),
+              Positioned(
+                left: sideInset,
+                top: topInset + 12,
+                right: sideInset + mascotSize + 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              t.profile,
+                              maxLines: 1,
+                              style: GoogleFonts.montserrat(
+                                fontSize: compact ? 30 : 36,
+                                fontWeight: FontWeight.w900,
+                                color: Appcolors.klibraryTitle,
+                                height: 0.98,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Appcolors.kgoalSparkle,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ResponsiveText(
+                      t.profileSubtitle,
+                      fontSize: compact ? 13.5 : 15,
+                      weight: FontWeight.w600,
+                      color: Appcolors.klibrarySubtitle,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 30,
+                height: 98,
+                child: CustomPaint(painter: _ProfileCloudBandPainter()),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -1,
+                height: 42,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Appcolors.kscreenWarmBackground.withValues(alpha: 0),
+                          Appcolors.kscreenWarmBackground,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileCloudAsset extends StatelessWidget {
+  const _ProfileCloudAsset({required this.width, required this.opacity});
+
+  final double width;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      KidsLearningAssets.cloudIcon,
+      width: width,
+      fit: BoxFit.contain,
+      colorFilter: ColorFilter.mode(
+        Appcolors.kwhitecolor.withValues(alpha: opacity),
+        BlendMode.srcIn,
+      ),
+    );
+  }
+}
+
+class _ProfileCloudBandPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Appcolors.kscreenWarmBackground.withValues(alpha: 0.98);
+    final path = Path()
+      ..moveTo(0, size.height * 0.54)
+      ..cubicTo(
+        size.width * 0.12,
+        size.height * 0.08,
+        size.width * 0.26,
+        size.height * 0.78,
+        size.width * 0.42,
+        size.height * 0.38,
+      )
+      ..cubicTo(
+        size.width * 0.55,
+        size.height * 0.02,
+        size.width * 0.68,
+        size.height * 0.78,
+        size.width * 0.82,
+        size.height * 0.34,
+      )
+      ..cubicTo(
+        size.width * 0.91,
+        size.height * 0.06,
+        size.width,
+        size.height * 0.32,
+        size.width,
+        size.height * 0.18,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _EditProfileTile extends StatelessWidget {
@@ -68,8 +321,8 @@ class _EditProfileTile extends StatelessWidget {
       builder: (context, state) {
         final user = state is AuthAuthenticated ? state.user : null;
 
-        return DashboardActionTile(
-          icon: Icons.manage_accounts_rounded,
+        return _ProfileActionCard(
+          assetPath: KidsLearningAssets.pencilIcon,
           title: t.editProfile,
           subtitle: t.editProfileSubtitle,
           accent: Appcolors.kprimarycolor,
@@ -102,12 +355,9 @@ class _UpgradePlanTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<LearningBloc, LearningState>(
       builder: (context, state) {
-        return DashboardActionTile(
-          icon: Icons.workspace_premium_rounded,
+        return _UpgradePlanCard(
           title: t.upgradePlan,
           subtitle: t.upgradePlanSubtitle,
-          accent: Appcolors.kmetricInventory,
-          surface: Appcolors.kmetricInventorySurface,
           onTap: state is LearningLoaded
               ? () {
                   Navigator.of(context).push(
@@ -126,24 +376,242 @@ class _UpgradePlanTile extends StatelessWidget {
   }
 }
 
-class _LearningProgressCard extends StatelessWidget {
-  const _LearningProgressCard({required this.t});
+class _ProfileActionCard extends StatelessWidget {
+  const _ProfileActionCard({
+    required this.assetPath,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.surface,
+    this.onTap,
+  });
 
-  final AppLocalizations t;
+  final String assetPath;
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final Color surface;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<LearningBloc, LearningState>(
-      builder: (context, state) {
-        final catalog = state is LearningLoaded ? state.catalog : null;
+    return PressableScale(
+      enabled: onTap != null,
+      child: Material(
+        color: Appcolors.ktransparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(19),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 13, 14, 13),
+            decoration: BoxDecoration(
+              color: Appcolors.kwhitecolor.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(19),
+              border: Border.all(color: Appcolors.kauthDivider),
+              boxShadow: [
+                BoxShadow(
+                  color: Appcolors.kprimarycolor.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.center,
+                  child: SvgPicture.asset(
+                    assetPath,
+                    width: 31,
+                    height: 31,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ResponsiveText(
+                        title,
+                        fontSize: 14.8,
+                        weight: FontWeight.w900,
+                        color: Appcolors.ktextdark,
+                        overflow: TextOverflow.visible,
+                      ),
+                      const SizedBox(height: 3),
+                      ResponsiveText(
+                        subtitle,
+                        fontSize: 11.5,
+                        weight: FontWeight.w600,
+                        color: Appcolors.kdashboardMutedText,
+                        overflow: TextOverflow.visible,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: accent,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-        return _LearningProgressContent(
-          catalog: catalog,
-          t: t,
-          courseCount: catalog?.courses.length ?? 0,
-          quizCount: catalog?.quizQuestions.length ?? 0,
-        );
-      },
+class _UpgradePlanCard extends StatelessWidget {
+  const _UpgradePlanCard({
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableScale(
+      enabled: onTap != null,
+      child: Material(
+        color: Appcolors.ktransparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 13, 14, 13),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFFFFF8EA), Color(0xFFFFEDD3)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Appcolors.kheroStartButtonBottom),
+              boxShadow: [
+                BoxShadow(
+                  color: Appcolors.kheroStartButtonBottom.withValues(
+                    alpha: 0.12,
+                  ),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  right: 42,
+                  top: 4,
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Appcolors.kheroStartButtonBottom.withValues(
+                      alpha: 0.30,
+                    ),
+                    size: 18,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 68,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: Appcolors.kwhitecolor.withValues(alpha: 0.50),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: SvgPicture.asset(
+                        KidsLearningAssets.crownIcon,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ResponsiveText(
+                            title,
+                            fontSize: 14.8,
+                            weight: FontWeight.w900,
+                            color: Appcolors.ktextdark,
+                            overflow: TextOverflow.visible,
+                          ),
+                          const SizedBox(height: 3),
+                          ResponsiveText(
+                            subtitle,
+                            fontSize: 11.5,
+                            weight: FontWeight.w600,
+                            color: Appcolors.kdashboardMutedText,
+                            maxLines: 2,
+                            overflow: TextOverflow.visible,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Appcolors.kheroStartButtonBottom,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Appcolors.kwhitecolor,
+                        size: 28,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LearningProgressCard extends StatelessWidget {
+  const _LearningProgressCard({required this.t, required this.catalog});
+
+  final AppLocalizations t;
+  final LearningCatalog? catalog;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LearningProgressContent(
+      catalog: catalog,
+      t: t,
+      courseCount: catalog?.courses.length ?? 0,
+      quizCount: catalog?.quizQuestions.length ?? 0,
     );
   }
 }
@@ -168,22 +636,45 @@ class _LearningProgressContent extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(17, 15, 17, 15),
       decoration: BoxDecoration(
-        color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Appcolors.kauthDivider),
+        color: const Color(0xFFFFFBFF).withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Appcolors.kprimarycolor.withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Appcolors.kprimarycolor.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              Container(
+                width: 31,
+                height: 31,
+                decoration: BoxDecoration(
+                  color: Appcolors.ksoftPrimarySurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: Appcolors.kprimarycolor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 9),
               Expanded(
                 child: ResponsiveText(
                   t.learningSetup,
-                  fontSize: 16,
-                  weight: FontWeight.w800,
+                  fontSize: 14.8,
+                  weight: FontWeight.w900,
                   color: Appcolors.ktextdark,
                   overflow: TextOverflow.visible,
                 ),
@@ -200,29 +691,47 @@ class _LearningProgressContent extends StatelessWidget {
                       },
                 icon: const Icon(Icons.tune_rounded, size: 18),
                 label: Text(t.edit),
+                style: TextButton.styleFrom(
+                  foregroundColor: Appcolors.kprimarycolor,
+                  visualDensity: VisualDensity.compact,
+                  textStyle: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),
-          ResponsiveSizedBox.height(1.6),
+          ResponsiveSizedBox.height(1.2),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _ProfilePill(
+                icon: Icons.child_care_rounded,
                 label: '${t.student}: ${setup?.childName ?? t.loading}',
               ),
               _ProfilePill(
+                icon: Icons.home_rounded,
                 label: '${t.home}: ${setup?.primaryLanguage ?? t.loading}',
               ),
               _ProfilePill(
+                icon: Icons.menu_book_rounded,
                 label: '${t.learning}: ${setup?.learningLanguage ?? t.loading}',
               ),
-              _ProfilePill(label: '${t.level}: ${setup?.level ?? t.loading}'),
               _ProfilePill(
+                icon: Icons.star_rounded,
+                label: '${t.level}: ${setup?.level ?? t.loading}',
+              ),
+              _ProfilePill(
+                icon: Icons.schedule_rounded,
                 label:
                     '${t.goal}: ${setup?.dailyGoalMinutes ?? 0} ${t.minutesShort}',
               ),
-              _ProfilePill(label: '${t.plan}: $plan'),
+              _ProfilePill(
+                icon: Icons.card_giftcard_rounded,
+                label: '${t.plan}: $plan',
+              ),
             ],
           ),
           if (setup != null && setup.interests.isNotEmpty) ...[
@@ -235,22 +744,53 @@ class _LearningProgressContent extends StatelessWidget {
               overflow: TextOverflow.visible,
             ),
           ],
-          ResponsiveSizedBox.height(1.8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: courseCount == 0 ? 0 : 1,
-              minHeight: 9,
-              backgroundColor: Appcolors.ksoftPrimarySurface,
-              valueColor: const AlwaysStoppedAnimation(Appcolors.kprimarycolor),
-            ),
+          ResponsiveSizedBox.height(1.7),
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD9FFCA),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.star_rounded,
+                  color: Appcolors.klearningPlayfulGreen,
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: courseCount == 0 ? 0 : 1,
+                    minHeight: 10,
+                    backgroundColor: Appcolors.ksoftPrimarySurface,
+                    valueColor: const AlwaysStoppedAnimation(
+                      Appcolors.kprimarycolor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SvgPicture.asset(
+                KidsLearningAssets.trophyIcon,
+                width: 37,
+                height: 37,
+                fit: BoxFit.contain,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          ResponsiveText(
-            t.courseQuizReady(courseCount, quizCount),
-            fontSize: 12,
-            weight: FontWeight.w800,
-            color: Appcolors.kdashboardMutedText,
+          const SizedBox(height: 8),
+          Center(
+            child: ResponsiveText(
+              t.courseQuizReady(courseCount, quizCount),
+              fontSize: 11.5,
+              weight: FontWeight.w800,
+              color: Appcolors.kdashboardMutedText,
+            ),
           ),
         ],
       ),
@@ -269,23 +809,42 @@ class _LearningProgressContent extends StatelessWidget {
 }
 
 class _ProfilePill extends StatelessWidget {
-  const _ProfilePill({required this.label});
+  const _ProfilePill({required this.icon, required this.label});
 
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Appcolors.ksoftPrimarySurface,
+        color: Appcolors.kwhitecolor.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: Appcolors.kprimarycolor.withValues(alpha: 0.16),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Appcolors.kprimarycolor.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: ResponsiveText(
-        label,
-        fontSize: 11.5,
-        weight: FontWeight.w900,
-        color: Appcolors.kprimarycolor,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Appcolors.kprimarycolor, size: 15),
+          const SizedBox(width: 5),
+          ResponsiveText(
+            label,
+            fontSize: 11,
+            weight: FontWeight.w900,
+            color: Appcolors.kprimarycolor,
+            maxLines: 1,
+          ),
+        ],
       ),
     );
   }
@@ -304,58 +863,101 @@ class _ProfileDetailsCard extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(17, 15, 17, 4),
           decoration: BoxDecoration(
-            color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
-            borderRadius: BorderRadius.circular(24),
+            color: Appcolors.kwhitecolor.withValues(alpha: 0.97),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Appcolors.kauthDivider),
+            boxShadow: [
+              BoxShadow(
+                color: Appcolors.kprimarycolor.withValues(alpha: 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              ResponsiveText(
-                t.accountInformation,
-                fontSize: 16,
-                weight: FontWeight.w800,
-                color: Appcolors.ktextdark,
-                overflow: TextOverflow.visible,
+              Positioned(
+                right: -5,
+                top: -10,
+                child: SvgPicture.asset(
+                  KidsLearningAssets.rainbowIcon,
+                  width: 54,
+                  height: 54,
+                  fit: BoxFit.contain,
+                ),
               ),
-              ResponsiveSizedBox.height(2),
-              _ProfileInfoRow(
-                icon: Icons.phone_outlined,
-                label: t.mobileNumber,
-                value: user?.mobileNumber,
-                accent: Appcolors.kprimarycolor,
-                surface: Appcolors.ksoftPrimarySurface,
-              ),
-              _ProfileInfoRow(
-                icon: Icons.email_outlined,
-                label: t.email,
-                value: user?.email,
-                accent: Appcolors.kmetricInventory,
-                surface: Appcolors.kmetricInventorySurface,
-              ),
-              _ProfileInfoRow(
-                icon: Icons.school_outlined,
-                label: t.school,
-                value: user?.school,
-                accent: Appcolors.kdashboardTeal,
-                surface: Appcolors.kauthSoftGreen,
-              ),
-              _ProfileInfoRow(
-                icon: Icons.location_city_outlined,
-                label: t.city,
-                value: user?.city,
-                accent: Appcolors.kprimarycolor,
-                surface: Appcolors.ksoftPrimarySurface,
-              ),
-              _ProfileInfoRow(
-                icon: Icons.map_outlined,
-                label: t.state,
-                value: user?.state,
-                accent: Appcolors.kmetricInventory,
-                surface: Appcolors.kmetricInventorySurface,
-                showDivider: false,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 31,
+                        height: 31,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5F1FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Appcolors.kdashboardBlue,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ResponsiveText(
+                          t.accountInformation,
+                          fontSize: 14.8,
+                          weight: FontWeight.w900,
+                          color: Appcolors.ktextdark,
+                          overflow: TextOverflow.visible,
+                        ),
+                      ),
+                      const SizedBox(width: 54),
+                    ],
+                  ),
+                  ResponsiveSizedBox.height(1.2),
+                  _ProfileInfoRow(
+                    icon: Icons.phone_outlined,
+                    label: t.mobileNumber,
+                    value: user?.mobileNumber,
+                    accent: Appcolors.kprimarycolor,
+                    surface: Appcolors.ksoftPrimarySurface,
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.email_outlined,
+                    label: t.email,
+                    value: user?.email,
+                    accent: Appcolors.kheroStartButtonBottom,
+                    surface: Appcolors.kmetricInventorySurface,
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.school_outlined,
+                    label: t.school,
+                    value: user?.school,
+                    accent: Appcolors.kdashboardTeal,
+                    surface: Appcolors.kauthSoftGreen,
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.location_city_outlined,
+                    label: t.city,
+                    value: user?.city,
+                    accent: Appcolors.kdashboardBlue,
+                    surface: const Color(0xFFE5F1FF),
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.map_outlined,
+                    label: t.state,
+                    value: user?.state,
+                    accent: Appcolors.kmetricInventory,
+                    surface: Appcolors.kmetricInventorySurface,
+                    showDivider: false,
+                  ),
+                ],
               ),
             ],
           ),
@@ -391,30 +993,30 @@ class _ProfileInfoRow extends StatelessWidget {
         Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: surface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(icon, color: accent, size: 22),
+              child: Icon(icon, color: accent, size: 21),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ResponsiveText(
                     label,
-                    fontSize: 12,
+                    fontSize: 11.5,
                     weight: FontWeight.w700,
                     color: Appcolors.kdashboardMutedText,
                     overflow: TextOverflow.visible,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   ResponsiveText(
                     displayValue,
-                    fontSize: 14,
+                    fontSize: 12.8,
                     weight: FontWeight.w800,
                     color: Appcolors.ktextdark,
                     overflow: TextOverflow.visible,
@@ -422,11 +1024,16 @@ class _ProfileInfoRow extends StatelessWidget {
                 ],
               ),
             ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Appcolors.kdashboardMutedIcon,
+              size: 22,
+            ),
           ],
         ),
         if (showDivider)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
+            padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: Appcolors.kauthDivider),
           ),
       ],
@@ -443,16 +1050,16 @@ class _ProfileSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.fromLTRB(18, 15, 16, 15),
       decoration: BoxDecoration(
         color: Appcolors.kwhitecolor,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Appcolors.kauthDivider),
         boxShadow: [
           BoxShadow(
-            color: Appcolors.kprimarycolor.withValues(alpha: 0.10),
-            blurRadius: 26,
-            offset: const Offset(0, 14),
+            color: Appcolors.kprimarycolor.withValues(alpha: 0.11),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -461,17 +1068,26 @@ class _ProfileSummaryCard extends StatelessWidget {
           Container(
             width: 58,
             height: 58,
-            decoration: const BoxDecoration(
-              color: Appcolors.ksoftPrimarySurface,
+            decoration: BoxDecoration(
+              color: Appcolors.kwhitecolor,
               shape: BoxShape.circle,
+              border: Border.all(color: Appcolors.kwhitecolor, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Appcolors.kblackcolor.withValues(alpha: 0.12),
+                  blurRadius: 14,
+                  offset: const Offset(0, 7),
+                ),
+              ],
             ),
+            alignment: Alignment.center,
             child: const Icon(
-              Icons.person_rounded,
-              color: Appcolors.kprimarycolor,
-              size: 32,
+              Icons.face_rounded,
+              color: Appcolors.kdashboardBlue,
+              size: 35,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: BlocBuilder<AuthBloc, AuthState>(
               builder: (context, state) {
@@ -481,20 +1097,42 @@ class _ProfileSummaryCard extends StatelessWidget {
                   children: [
                     ResponsiveText(
                       user?.fullName ?? t.langLexLearner,
-                      fontSize: 17,
-                      weight: FontWeight.w800,
+                      fontSize: 16.5,
+                      weight: FontWeight.w900,
                       color: Appcolors.ktextdark,
                     ),
                     const SizedBox(height: 5),
                     ResponsiveText(
                       user?.mobileNumber ?? t.profileActive,
                       fontSize: 13,
-                      weight: FontWeight.w700,
+                      weight: FontWeight.w900,
                       color: Appcolors.kdashboardTeal,
                     ),
                   ],
                 );
               },
+            ),
+          ),
+          Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: Appcolors.ksoftPrimarySurface.withValues(alpha: 0.76),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Appcolors.kprimarycolor,
+              ),
+              child: const Icon(
+                Icons.verified_user_rounded,
+                color: Appcolors.kwhitecolor,
+                size: 18,
+              ),
             ),
           ),
         ],

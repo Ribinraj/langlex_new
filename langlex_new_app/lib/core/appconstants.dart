@@ -1,9 +1,11 @@
 class AppConstants {
   const AppConstants._();
 
-  static const appLogo = 'assets/images/logo.png';
+  static const appLogo = 'assets/images/logo_new.png';
+  static const splashPageArt = 'assets/images/splash_page_art_clean.png';
+  static const loginImage = 'assets/images/login_image.png';
 
-  static const loginTitle = 'Welcome back';
+  static const loginTitle = 'Welcome back!';
   static const loginSubtitle = 'Enter your mobile number to continue learning.';
   static const mobileNumberLabel = 'Mobile number';
   static const mobileNumberHint = 'Enter mobile number';

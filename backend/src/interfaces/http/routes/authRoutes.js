@@ -45,6 +45,11 @@ router.post(
   asyncHandler(authController.sendOtp),
 );
 router.post(
+  '/resend-otp',
+  validate(mobileSchema),
+  asyncHandler(authController.resendOtp),
+);
+router.post(
   '/verify-otp',
   validate(verifyOtpSchema),
   asyncHandler(authController.verifyOtp),

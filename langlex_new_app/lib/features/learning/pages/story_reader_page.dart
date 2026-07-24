@@ -25,6 +25,8 @@ class StoryReaderPage extends StatefulWidget {
 
 class _StoryReaderPageState extends State<StoryReaderPage> {
   final ScrollController _scrollController = ScrollController();
+  Future<void>? _startProgressFuture;
+  bool _isCompleting = false;
 
   String get _contentKey => widget.story.id > 0
       ? 'story-${widget.story.id}'
@@ -34,7 +36,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _saveProgress(status: 'in_progress');
+      if (mounted) {
+        _startProgressFuture = _markStartedIfNeeded();
+      }
     });
   }
 
@@ -44,14 +48,51 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     super.dispose();
   }
 
-  void _saveProgress({required String status}) {
-    context.read<LearningRepository>().saveContentProgress(
+  Future<ContentProgress> _saveProgress({required String status}) {
+    return context.read<LearningRepository>().saveContentProgress(
       contentType: 'story',
       contentKey: _contentKey,
       position: status == 'completed' ? 1 : 0,
       totalItems: 1,
       status: status,
     );
+  }
+
+  Future<void> _markStartedIfNeeded() async {
+    try {
+      final progress = await context
+          .read<LearningRepository>()
+          .getContentProgress(contentType: 'story', contentKey: _contentKey);
+      if (!mounted || progress.isCompleted) return;
+    } catch (_) {
+      if (!mounted) return;
+    }
+
+    try {
+      await _saveProgress(status: 'in_progress');
+    } catch (_) {
+      // Opening a story should still work if progress sync is temporarily unavailable.
+    }
+  }
+
+  Future<void> _completeReading() async {
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+
+    try {
+      await _startProgressFuture;
+      await _saveProgress(status: 'completed');
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isCompleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save story progress. Please try again.'),
+        ),
+      );
+    }
   }
 
   Future<void> _restartReading() async {
@@ -69,7 +110,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
-    _saveProgress(status: 'in_progress');
+    await _saveProgress(status: 'in_progress');
   }
 
   @override
@@ -213,11 +254,16 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: () {
-                          _saveProgress(status: 'completed');
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(Icons.check_rounded),
+                        onPressed: _isCompleting ? null : _completeReading,
+                        icon: _isCompleting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.check_rounded),
                         label: Text(t.doneReading),
                       ),
                     ),

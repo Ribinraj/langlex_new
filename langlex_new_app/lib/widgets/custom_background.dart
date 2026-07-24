@@ -45,7 +45,7 @@ class _KidsBubbleBackgroundState extends State<KidsBubbleBackground>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: widget.baseColor ?? const Color(0xFFF6EFFD),
+      color: widget.baseColor ?? Appcolors.kbackgroundBubbleDefault,
       child: Stack(
         children: [
           Positioned.fill(
