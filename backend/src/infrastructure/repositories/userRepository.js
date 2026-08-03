@@ -1,7 +1,7 @@
 const { pool } = require('../database/db');
 
 const publicColumns =
-  'id, mobile_number, full_name, email, school, city, state, push_token, created_at, updated_at';
+  'id, mobile_number, full_name, email, school, city, state, push_token, mobile_verified_at, created_at, updated_at';
 
 const findByMobileNumber = async (mobileNumber) => {
   const [rows] = await pool.execute(
@@ -34,6 +34,17 @@ const create = async ({
   );
 
   return findById(result.insertId);
+};
+
+const markMobileVerified = async (id) => {
+  await pool.execute(
+    `UPDATE users
+     SET mobile_verified_at = COALESCE(mobile_verified_at, CURRENT_TIMESTAMP),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [id],
+  );
+  return findById(id);
 };
 
 const updatePushToken = async (id, pushToken) => {
@@ -78,6 +89,7 @@ module.exports = {
   findByMobileNumber,
   findById,
   create,
+  markMobileVerified,
   updatePushToken,
   updateProfile,
   clearPushToken,

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:langlex_new_app/core/animations/app_animations.dart';
 import 'package:langlex_new_app/core/routes/approutes.dart';
+import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/pages/login_page.dart';
 import 'package:langlex_new_app/features/authentication/pages/signup_page.dart';
 import 'package:langlex_new_app/features/authentication/pages/splashpage.dart';
 import 'package:langlex_new_app/features/authentication/pages/verify_otp_page.dart';
 import 'package:langlex_new_app/features/dashboard/pages/dashboard_shell_page.dart';
+import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
+import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
+import 'package:langlex_new_app/features/notifications/pages/notifications_page.dart';
 
 class AppRouter {
   const AppRouter._();
@@ -30,9 +35,13 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.signup,
         pageBuilder: (context, state) {
+          final extra = state.extra;
           return _fadePage(
             state: state,
-            child: SignupPage(initialMobileNumber: state.extra as String?),
+            child: SignupPage(
+              initialMobileNumber: extra is String ? extra : null,
+              socialDraft: extra is SocialRegistrationDraft ? extra : null,
+            ),
           );
         },
       ),
@@ -51,8 +60,25 @@ class AppRouter {
           return _fadePage(state: state, child: const DashboardShellPage());
         },
       ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        pageBuilder: (context, state) {
+          return _fadePage(
+            state: state,
+            child: NotificationsPage(homeLanguage: _homeLanguage(context)),
+          );
+        },
+      ),
     ],
   );
+
+  static String _homeLanguage(BuildContext context) {
+    final state = context.read<LearningBloc>().state;
+    if (state is LearningLoaded) {
+      return state.catalog.setup.primaryLanguage;
+    }
+    return 'English';
+  }
 
   static CustomTransitionPage<void> _fadePage({
     required GoRouterState state,

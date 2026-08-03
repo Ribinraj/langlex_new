@@ -34,6 +34,19 @@ const verifyOtp = async (req, res) => {
   res.json(result);
 };
 
+const socialLogin = async (req, res) => {
+  const result = await authService.socialLogin(req.body);
+  res.json(result);
+};
+
+const socialRegister = async (req, res) => {
+  const result = await authService.socialRegister(req.body);
+  res.status(201).json({
+    message: 'Registration successful. OTP generated.',
+    ...result,
+  });
+};
+
 const logout = async (req, res) => {
   await authService.logout(req.user.id);
   res.json({ message: 'Logged out successfully' });
@@ -45,5 +58,7 @@ module.exports = {
   sendOtp,
   resendOtp,
   verifyOtp,
+  socialLogin,
+  socialRegister,
   logout,
 };

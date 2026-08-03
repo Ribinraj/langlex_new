@@ -9,6 +9,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CheckLoginStatusEvent>(_onCheckLoginStatus);
     on<CheckUserEvent>(_onCheckUser);
     on<RegisterEvent>(_onRegister);
+    on<SocialLoginEvent>(_onSocialLogin);
+    on<CompleteSocialRegistrationEvent>(_onCompleteSocialRegistration);
     on<SendOtpEvent>(_onSendOtp);
     on<ResendOtpEvent>(_onResendOtp);
     on<VerifyOtpEvent>(_onVerifyOtp);
@@ -111,6 +113,79 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError(error.message));
     } catch (_) {
       emit(const AuthError('Registration failed. Please try again.'));
+    }
+  }
+
+  Future<void> _onSocialLogin(
+    SocialLoginEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    try {
+      final result = await _repository.signInWithGoogle();
+
+      switch (result) {
+        case SocialLoginAuthenticated():
+          emit(AuthAuthenticated(user: result.user));
+        case SocialLoginNeedsRegistration():
+          emit(AuthSocialRegistrationRequired(result.draft));
+        case SocialLoginNeedsOtp():
+          emit(
+            AuthOtpSent(
+              mobileNumber: result.mobileNumber,
+              resendAfterSeconds: result.resendAfterSeconds,
+            ),
+          );
+      }
+    } on ApiException catch (error) {
+      emit(AuthError(error.message));
+    } catch (_) {
+      emit(const AuthError('Social login failed. Please try again.'));
+    }
+  }
+
+  Future<void> _onCompleteSocialRegistration(
+    CompleteSocialRegistrationEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final fullName = event.fullName.trim();
+    final mobileNumber = event.mobileNumber.trim();
+    final school = event.school.trim();
+    final city = event.city.trim();
+    final state = event.state.trim();
+    final validationError = _validateRegistration(
+      fullName: fullName,
+      mobileNumber: mobileNumber,
+      school: school,
+      city: city,
+      state: state,
+      email: event.email,
+    );
+    if (validationError != null) {
+      emit(AuthError(validationError));
+      return;
+    }
+
+    emit(const AuthLoading());
+    try {
+      final resendAfterSeconds = await _repository.completeSocialRegistration(
+        fullName: fullName,
+        mobileNumber: mobileNumber,
+        school: school,
+        city: city,
+        state: state,
+        email: event.email,
+      );
+      emit(
+        AuthOtpSent(
+          mobileNumber: mobileNumber,
+          resendAfterSeconds: resendAfterSeconds,
+        ),
+      );
+    } on ApiException catch (error) {
+      emit(AuthError(error.message));
+    } catch (_) {
+      emit(const AuthError('Social registration failed. Please try again.'));
     }
   }
 

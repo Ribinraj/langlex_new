@@ -11,6 +11,7 @@ import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
 import 'package:langlex_new_app/core/routes/approutes.dart';
+import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_event.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
@@ -68,6 +69,10 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  void _submitSocial(SocialLoginProvider provider) {
+    context.read<AuthBloc>().add(SocialLoginEvent(provider));
+  }
+
   @override
   Widget build(BuildContext context) {
     ResponsiveUtils().init(context);
@@ -76,8 +81,12 @@ class _LoginPageState extends State<LoginPage>
       listener: (context, state) {
         if (state is AuthUserNotExists) {
           context.go(AppRoutes.signup, extra: state.mobileNumber);
+        } else if (state is AuthSocialRegistrationRequired) {
+          context.go(AppRoutes.signup, extra: state.draft);
         } else if (state is AuthOtpSent) {
           context.go(AppRoutes.verifyOtp, extra: state.mobileNumber);
+        } else if (state is AuthAuthenticated) {
+          context.go(AppRoutes.dashboard);
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
@@ -159,6 +168,9 @@ class _LoginPageState extends State<LoginPage>
                                       controller: _mobileNumberController,
                                       isLoading: isLoading,
                                       onSubmit: _submit,
+                                      onGoogleSignIn: () => _submitSocial(
+                                        SocialLoginProvider.google,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -221,11 +233,13 @@ class _LoginFormCard extends StatelessWidget {
     required this.controller,
     required this.isLoading,
     required this.onSubmit,
+    required this.onGoogleSignIn,
   });
 
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onSubmit;
+  final VoidCallback onGoogleSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -252,14 +266,11 @@ class _LoginFormCard extends StatelessWidget {
           const SizedBox(height: 22),
           const _DividerLabel(label: 'or continue with'),
           const SizedBox(height: 18),
-          const _SocialAuthButton(
+          _SocialAuthButton(
             label: 'Continue with Google',
+            enabled: !isLoading,
+            onTap: onGoogleSignIn,
             child: _GoogleMark(),
-          ),
-          const SizedBox(height: 12),
-          const _SocialAuthButton(
-            label: 'Continue with Apple',
-            child: Icon(Icons.apple_rounded, color: Appcolors.kblackcolor),
           ),
         ],
       ),
@@ -436,43 +447,58 @@ class _DividerLabel extends StatelessWidget {
 }
 
 class _SocialAuthButton extends StatelessWidget {
-  const _SocialAuthButton({required this.label, required this.child});
+  const _SocialAuthButton({
+    required this.label,
+    required this.child,
+    required this.onTap,
+    required this.enabled,
+  });
 
   final String label;
   final Widget child;
+  final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        height: 54,
-        decoration: BoxDecoration(
-          color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
+    return PressableScale(
+      enabled: enabled,
+      child: Material(
+        color: Appcolors.ktransparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: const Color(0xFFE9E1F4), width: 1.1),
-          boxShadow: [
-            BoxShadow(
-              color: Appcolors.kprimarycolor.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+          child: Ink(
+            height: 54,
+            decoration: BoxDecoration(
+              color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: const Color(0xFFE9E1F4), width: 1.1),
+              boxShadow: [
+                BoxShadow(
+                  color: Appcolors.kprimarycolor.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(width: 28, height: 28, child: Center(child: child)),
-            const SizedBox(width: 16),
-            Flexible(
-              child: ResponsiveText(
-                label,
-                fontSize: 15,
-                weight: FontWeight.w800,
-                color: const Color(0xFF6E6888),
-                maxLines: 1,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(width: 28, height: 28, child: Center(child: child)),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: ResponsiveText(
+                    label,
+                    fontSize: 15,
+                    weight: FontWeight.w800,
+                    color: const Color(0xFF6E6888),
+                    maxLines: 1,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/network_services.dart';
+import 'package:langlex_new_app/core/push_notification_service.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
 import 'package:langlex_new_app/core/routes/approuter.dart';
+import 'package:langlex_new_app/core/routes/approutes.dart';
 import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
@@ -12,8 +14,12 @@ import 'package:langlex_new_app/features/learning/learning_repo.dart';
 import 'package:langlex_new_app/features/notifications/notification_repo.dart';
 import 'package:langlex_new_app/features/payments/payment_repo.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  await PushNotificationService.instance.initialize(
+    onNotificationTap: (_) => AppRouter.router.go(AppRoutes.notifications),
+  );
   runApp(const LanglexNewApp());
 }
 

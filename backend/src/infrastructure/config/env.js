@@ -41,4 +41,9 @@ module.exports = {
     password: process.env.ADMIN_PASSWORD || 'M@njula1105',
     name: process.env.ADMIN_NAME || 'Crisant Technologies',
   },
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID || '',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+    privateKey: process.env.FIREBASE_PRIVATE_KEY || '',
+  },
 };

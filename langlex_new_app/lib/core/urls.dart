@@ -21,9 +21,12 @@ class Endpoints {
   static const sendOtp = 'auth/send-otp';
   static const resendOtp = 'auth/resend-otp';
   static const verifyOtp = 'auth/verify-otp';
+  static const socialLogin = 'auth/social-login';
+  static const socialRegister = 'auth/social-register';
   static const logout = 'auth/logout';
   static const currentUser = 'user/profile';
   static const updateProfile = 'user/profile';
+  static const updatePushToken = 'user/push-token';
   static const learningSetup = 'user/learning-setup';
   static const dailyGoal = 'user/daily-goal';
   static const dailyGoalProgress = 'user/daily-goal/progress';

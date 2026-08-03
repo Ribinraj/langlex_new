@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/models/app_user.dart';
 
 abstract class AuthState {
@@ -34,6 +35,12 @@ class AuthOtpSent extends AuthState {
   final String mobileNumber;
   final int resendAfterSeconds;
   final bool isResend;
+}
+
+class AuthSocialRegistrationRequired extends AuthState {
+  const AuthSocialRegistrationRequired(this.draft);
+
+  final SocialRegistrationDraft draft;
 }
 
 class AuthOtpVerified extends AuthState {

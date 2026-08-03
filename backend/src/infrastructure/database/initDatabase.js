@@ -1148,6 +1148,7 @@ const initializeDatabase = async () => {
       city VARCHAR(120) NULL,
       state VARCHAR(120) NULL,
       push_token TEXT NULL,
+      mobile_verified_at DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -1158,6 +1159,30 @@ const initializeDatabase = async () => {
   await ensureColumn('users', 'school', 'VARCHAR(160) NULL AFTER email');
   await ensureColumn('users', 'city', 'VARCHAR(120) NULL AFTER school');
   await ensureColumn('users', 'state', 'VARCHAR(120) NULL AFTER city');
+  await ensureColumn(
+    'users',
+    'mobile_verified_at',
+    'DATETIME NULL AFTER push_token',
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_auth_identities (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NOT NULL,
+      provider ENUM('google', 'apple') NOT NULL,
+      provider_uid VARCHAR(191) NOT NULL,
+      email VARCHAR(191) NULL,
+      email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY user_auth_identities_provider_uid_unique (provider, provider_uid),
+      KEY user_auth_identities_user_id_index (user_id),
+      CONSTRAINT user_auth_identities_user_id_foreign
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS otp_verifications (

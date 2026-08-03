@@ -10,6 +10,7 @@ class AppUser {
     this.city,
     this.state,
     this.pushToken,
+    this.mobileVerifiedAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -22,6 +23,7 @@ class AppUser {
   final String? city;
   final String? state;
   final String? pushToken;
+  final DateTime? mobileVerifiedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -35,6 +37,7 @@ class AppUser {
       city: _nullableString(json['city']),
       state: _nullableString(json['state']),
       pushToken: _nullableString(json['push_token']),
+      mobileVerifiedAt: _parseDate(json['mobile_verified_at']),
       createdAt: _parseDate(json['created_at']),
       updatedAt: _parseDate(json['updated_at']),
     );
@@ -50,6 +53,7 @@ class AppUser {
       'city': city,
       'state': state,
       'push_token': pushToken,
+      'mobile_verified_at': mobileVerifiedAt?.toIso8601String(),
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };

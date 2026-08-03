@@ -9,6 +9,7 @@ import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
 import 'package:langlex_new_app/core/routes/approutes.dart';
+import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_event.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
@@ -16,9 +17,10 @@ import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_sta
 import 'package:langlex_new_app/widgets/custom_button.dart';
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key, this.initialMobileNumber});
+  const SignupPage({super.key, this.initialMobileNumber, this.socialDraft});
 
   final String? initialMobileNumber;
+  final SocialRegistrationDraft? socialDraft;
 
   @override
   State<SignupPage> createState() => _SignupPageState();
@@ -41,6 +43,8 @@ class _SignupPageState extends State<SignupPage>
   void initState() {
     super.initState();
     _mobileNumberController.text = widget.initialMobileNumber ?? '';
+    _usernameController.text = widget.socialDraft?.fullName ?? '';
+    _emailController.text = widget.socialDraft?.email ?? '';
 
     _entranceController = AnimationController(
       vsync: this,
@@ -76,6 +80,20 @@ class _SignupPageState extends State<SignupPage>
   }
 
   void _submit() {
+    if (widget.socialDraft != null) {
+      context.read<AuthBloc>().add(
+        CompleteSocialRegistrationEvent(
+          fullName: _usernameController.text,
+          mobileNumber: _mobileNumberController.text,
+          school: _schoolController.text,
+          city: _cityController.text,
+          state: _stateController.text,
+          email: _emailController.text,
+        ),
+      );
+      return;
+    }
+
     context.read<AuthBloc>().add(
       RegisterEvent(
         fullName: _usernameController.text,
@@ -96,6 +114,8 @@ class _SignupPageState extends State<SignupPage>
       listener: (context, state) {
         if (state is AuthOtpSent) {
           context.go(AppRoutes.verifyOtp, extra: state.mobileNumber);
+        } else if (state is AuthAuthenticated) {
+          context.go(AppRoutes.dashboard);
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()

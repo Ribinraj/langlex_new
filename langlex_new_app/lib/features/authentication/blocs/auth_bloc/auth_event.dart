@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/features/authentication/auth_repo.dart';
 import 'package:langlex_new_app/features/authentication/models/app_user.dart';
 
 abstract class AuthEvent {
@@ -12,6 +13,30 @@ class CheckUserEvent extends AuthEvent {
 
 class RegisterEvent extends AuthEvent {
   const RegisterEvent({
+    required this.fullName,
+    required this.mobileNumber,
+    required this.school,
+    required this.city,
+    required this.state,
+    this.email,
+  });
+
+  final String fullName;
+  final String mobileNumber;
+  final String school;
+  final String city;
+  final String state;
+  final String? email;
+}
+
+class SocialLoginEvent extends AuthEvent {
+  const SocialLoginEvent(this.provider);
+
+  final SocialLoginProvider provider;
+}
+
+class CompleteSocialRegistrationEvent extends AuthEvent {
+  const CompleteSocialRegistrationEvent({
     required this.fullName,
     required this.mobileNumber,
     required this.school,

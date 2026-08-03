@@ -29,6 +29,15 @@ const verifyOtpSchema = mobileSchema.keys({
   push_token: Joi.string().trim().allow('', null).optional(),
 });
 
+const socialLoginSchema = Joi.object({
+  id_token: Joi.string().trim().required(),
+  push_token: Joi.string().trim().allow('', null).optional(),
+});
+
+const socialRegisterSchema = registerSchema.keys({
+  id_token: Joi.string().trim().required(),
+});
+
 router.post(
   '/check-user',
   validate(mobileSchema),
@@ -53,6 +62,16 @@ router.post(
   '/verify-otp',
   validate(verifyOtpSchema),
   asyncHandler(authController.verifyOtp),
+);
+router.post(
+  '/social-login',
+  validate(socialLoginSchema),
+  asyncHandler(authController.socialLogin),
+);
+router.post(
+  '/social-register',
+  validate(socialRegisterSchema),
+  asyncHandler(authController.socialRegister),
 );
 router.post('/logout', authenticate, asyncHandler(authController.logout));
 
