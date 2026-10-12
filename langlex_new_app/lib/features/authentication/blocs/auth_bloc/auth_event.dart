@@ -85,3 +85,8 @@ class UserChangedEvent extends AuthEvent {
 
   final AppUser user;
 }
+
+class SessionEndedEvent extends AuthEvent {
+  const SessionEndedEvent(this.message);
+  final String message;
+}

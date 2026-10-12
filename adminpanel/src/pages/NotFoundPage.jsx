@@ -1,4 +1,5 @@
-import { Button, Stack, Typography } from '@mui/material'
+import EmptyState from '../components/EmptyState'
+import { Button, Stack } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 
 export default function NotFoundPage() {
@@ -13,10 +14,10 @@ export default function NotFoundPage() {
         justifyContent: 'center',
       }}
     >
-      <Typography variant="h3">Page not found</Typography>
-      <Typography color="text.secondary">
-        The admin route you requested does not exist.
-      </Typography>
+      <EmptyState
+        title="This page wandered off"
+        description="The page may have moved, or the address may be incorrect."
+      />
       <Button component={RouterLink} to="/" variant="contained">
         Go to dashboard
       </Button>

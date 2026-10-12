@@ -3,3 +3,12 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Raw legacy dumps include accounts and credentials; ship only extracted learning data.
+database/imports/
+
+# Local development server logs.
+.local/
+
+# Uploaded content is runtime data; back up with the database.
+public/media/uploads/

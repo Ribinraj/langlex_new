@@ -45,3 +45,23 @@ npm run build
 npm run lint
 npm run preview
 ```
+
+## Learning content workflow
+
+Open `/learning` and choose Knowledge, Alphabets, Stories or Quizzes. Knowledge
+also contains Sounds. Filter topics by language or standard; open a topic to
+manage its words, examples, passages or questions. Add topic and Edit topic let
+you assign multiple standards or All standards. New items inherit the topic's
+standards. Existing individual assignments are retained unless you explicitly
+apply the topic's standards to every item. Needs review flags unrecognized
+original assignments. Student preview shows the content assigned to the chosen
+language and standard; access labels identify Premium topics separately.
+
+Import / bulk edit is available inside each topic. CSV imports inherit that
+topic's language and standards; edits retain individual standard assignments.
+Review the validated preview before applying a batch (up to 100 items).
+
+Subscription plans are under Settings → Manage subscription plans. Development
+runs default to `http://127.0.0.1:5050/api`; production builds retain the hosted
+API unless `VITE_API_BASE_URL` overrides it. Run the local backend before opening
+the admin workspace. This local redesign has not been deployed.

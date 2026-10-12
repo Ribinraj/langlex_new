@@ -20,7 +20,7 @@ class DashboardPageLayout extends StatelessWidget {
         tabletHorizontal: 42,
         desktopHorizontal: 56,
         top: isMobile ? ResponsiveUtils.hp(3) : 48,
-        bottom: 132,
+        bottom: 24,
       ),
       child: ResponsiveUtils.constrainWidth(
         context: context,

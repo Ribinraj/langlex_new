@@ -1,5 +1,5 @@
 import { FilterAltRounded, SearchRounded } from '@mui/icons-material'
-import { Box, MenuItem, Stack, TextField } from '@mui/material'
+import { Box, InputAdornment, MenuItem, Stack, TextField } from '@mui/material'
 
 export default function DataToolbar({
   search,
@@ -18,18 +18,27 @@ export default function DataToolbar({
         justifyContent: 'space-between',
       }}
     >
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ flex: 1 }}>
+      <Stack
+        direction={{ xs: 'column', lg: 'row' }}
+        spacing={1.5}
+        sx={{ flex: 1 }}
+      >
         <TextField
           value={search}
           onChange={(event) => onSearch(event.target.value)}
           placeholder={placeholder}
           size="small"
           slotProps={{
+            htmlInput: { 'aria-label': placeholder },
             input: {
-              startAdornment: <SearchRounded fontSize="small" sx={{ mr: 1 }} />,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRounded fontSize="small" />
+                </InputAdornment>
+              ),
             },
           }}
-          sx={{ maxWidth: { sm: 360 } }}
+          sx={{ flex: 1, minWidth: 0, maxWidth: { md: 440 } }}
         />
         {filters.map((filter) => (
           <TextField
@@ -41,14 +50,19 @@ export default function DataToolbar({
             onChange={(event) => filter.onChange(event.target.value)}
             slotProps={{
               input: {
-                startAdornment: <FilterAltRounded fontSize="small" sx={{ mr: 0.75 }} />,
+                startAdornment: (
+                  <FilterAltRounded fontSize="small" sx={{ mr: 0.75 }} />
+                ),
               },
             }}
             sx={{ minWidth: 170 }}
           >
             <MenuItem value="">All</MenuItem>
             {filter.options.map((option) => (
-              <MenuItem key={option.value || option} value={option.value || option}>
+              <MenuItem
+                key={option.value || option}
+                value={option.value || option}
+              >
                 {option.label || option}
               </MenuItem>
             ))}

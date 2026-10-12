@@ -1,19 +1,21 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:langlex_new_app/core/colors.dart';
 
 enum LearningAccess { free, login, premium }
 
+LearningAccess _learningAccess(dynamic value) {
+  return switch (value?.toString().trim().toLowerCase()) {
+    '1' || 'premium' || 'paid' => LearningAccess.premium,
+    'login' => LearningAccess.login,
+    _ => LearningAccess.free,
+  };
+}
+
 class LearningSetupOptions {
   const LearningSetupOptions._();
 
   static const allLevels = 'All levels';
-  static const ageGroups = [
-    '2-3 years',
-    '3-4 years',
-    '4-5 years',
-    '5-6 years',
-    '6+ years',
-  ];
   static const academicLevels = [
     'Playgroup',
     'Nursery',
@@ -22,10 +24,6 @@ class LearningSetupOptions {
     'Class 1',
     'Class 2',
   ];
-
-  static String cleanAgeGroup(String value) {
-    return ageGroups.contains(value) ? value : ageGroups[1];
-  }
 
   static String cleanAcademicLevel(String value) {
     final normalized = normalizeLevel(value);
@@ -36,9 +34,9 @@ class LearningSetupOptions {
     final text = value.trim();
     if (text.isEmpty) return '';
     final alias = switch (text.toLowerCase()) {
-      'beginner' => 'Nursery',
-      'intermediate' => 'LKG',
-      'advanced' => 'UKG',
+      'beginner' || 'शिशुसदन' || 'ಶಿಶುವಿಹಾರ' || 'নাৰ্চাৰী' => 'Nursery',
+      'intermediate' || 'अवर बालविहार' || 'ಎಲ್ಕೆಜಿ' => 'LKG',
+      'advanced' || 'बालविहार' || 'ಯುಕೆಜಿ' => 'UKG',
       _ => null,
     };
     if (alias != null) return alias;
@@ -64,7 +62,7 @@ class LearningCatalog {
     required this.phonics,
     required this.plans,
     required this.setup,
-    required this.dailyGoal,
+    this.totals = const {},
   });
 
   final List<String> languages;
@@ -76,11 +74,11 @@ class LearningCatalog {
   final List<PhonicsItem> phonics;
   final List<SubscriptionPlan> plans;
   final LearningSetup setup;
-  final DailyGoal dailyGoal;
+  final Map<String, int> totals;
 
   int get phonicsCount => phonics.length;
 
-  LearningCatalog copyWith({LearningSetup? setup, DailyGoal? dailyGoal}) {
+  LearningCatalog copyWith({LearningSetup? setup}) {
     return LearningCatalog(
       languages: languages,
       levels: levels,
@@ -91,7 +89,7 @@ class LearningCatalog {
       phonics: phonics,
       plans: plans,
       setup: setup ?? this.setup,
-      dailyGoal: dailyGoal ?? this.dailyGoal,
+      totals: totals,
     );
   }
 
@@ -105,7 +103,7 @@ class LearningCatalog {
     required List<dynamic> stories,
     required List<dynamic> plans,
     Map<String, dynamic>? setup,
-    Map<String, dynamic>? dailyGoal,
+    Map<String, int> totals = const {},
   }) {
     final contentRows = content
         .whereType<Map>()
@@ -141,7 +139,12 @@ class LearningCatalog {
       final courseJson = Map<String, dynamic>.from(row);
       final title = _asString(courseJson['title']);
       final courseContent = contentRows
-          .where((item) => _asString(item['course']) == title)
+          .where(
+            (item) =>
+                _asString(item['course']) == title &&
+                _asString(item['language']).toLowerCase() ==
+                    _asString(courseJson['language']).toLowerCase(),
+          )
           .toList();
       return LearningCourse.fromCourseJson(
         courseJson,
@@ -176,7 +179,7 @@ class LearningCatalog {
         languages: languageItems.isEmpty ? const ['English'] : languageItems,
         plans: planItems,
       ),
-      dailyGoal: DailyGoal.fromJson(dailyGoal),
+      totals: totals,
     );
   }
 }
@@ -197,23 +200,25 @@ List<String> _languagesFromApi(List<dynamic> rows) {
 class LearningSetup {
   const LearningSetup({
     required this.childName,
-    required this.ageGroup,
-    required this.primaryLanguage,
-    required this.learningLanguage,
+    required this.activeLanguage,
+    this.selectedLanguages = const [],
     required this.level,
     required this.interests,
-    required this.dailyGoalMinutes,
     required this.planId,
     required this.isConfigured,
   });
 
   final String childName;
-  final String ageGroup;
-  final String primaryLanguage;
-  final String learningLanguage;
+  final String activeLanguage;
+  final List<String> selectedLanguages;
+  String get primaryLanguage => activeLanguage;
+  String get learningLanguage => activeLanguage;
+  bool get hasSelectedLanguages =>
+      selectedLanguages.length == 3 &&
+      selectedLanguages.toSet().length == 3 &&
+      selectedLanguages.contains(activeLanguage);
   final String level;
   final List<String> interests;
-  final int dailyGoalMinutes;
   final int? planId;
   final bool isConfigured;
 
@@ -224,26 +229,20 @@ class LearningSetup {
   }) {
     final source = json ?? const <String, dynamic>{};
     final defaultLanguage = languages.isNotEmpty ? languages.first : 'English';
-    final secondLanguage = languages.length > 1
-        ? languages[1]
-        : defaultLanguage;
-    final defaultAgeGroup = LearningSetupOptions.ageGroups[1];
     final defaultLevel = LearningSetupOptions.academicLevels[1];
     final defaultPlanId = plans.isNotEmpty ? plans.first.id : null;
     final rawInterests = source['interests'];
 
     return LearningSetup(
       childName: _asString(source['child_name'], fallback: 'LangLex Learner'),
-      ageGroup: LearningSetupOptions.cleanAgeGroup(
-        _asString(source['age_group'], fallback: defaultAgeGroup),
-      ),
-      primaryLanguage: _asString(
-        source['primary_language'],
+      activeLanguage: _asString(
+        source['active_language'] ?? source['learning_language'],
         fallback: defaultLanguage,
       ),
-      learningLanguage: _asString(
-        source['learning_language'],
-        fallback: secondLanguage,
+      selectedLanguages: List<String>.unmodifiable(
+        (source['selected_languages'] as List? ?? const []).map(
+          (item) => item.toString(),
+        ),
       ),
       level: LearningSetupOptions.cleanAcademicLevel(
         _asString(source['level'], fallback: defaultLevel),
@@ -254,7 +253,6 @@ class LearningSetup {
                 .where((item) => item.isNotEmpty)
                 .toList()
           : const [],
-      dailyGoalMinutes: _asInt(source['daily_goal_minutes'], fallback: 15),
       planId: source['plan_id'] == null
           ? defaultPlanId
           : _asInt(source['plan_id']),
@@ -264,23 +262,19 @@ class LearningSetup {
 
   LearningSetup copyWith({
     String? childName,
-    String? ageGroup,
-    String? primaryLanguage,
-    String? learningLanguage,
+    String? activeLanguage,
+    List<String>? selectedLanguages,
     String? level,
     List<String>? interests,
-    int? dailyGoalMinutes,
     int? planId,
     bool? isConfigured,
   }) {
     return LearningSetup(
       childName: childName ?? this.childName,
-      ageGroup: ageGroup ?? this.ageGroup,
-      primaryLanguage: primaryLanguage ?? this.primaryLanguage,
-      learningLanguage: learningLanguage ?? this.learningLanguage,
+      activeLanguage: activeLanguage ?? this.activeLanguage,
+      selectedLanguages: selectedLanguages ?? this.selectedLanguages,
       level: level ?? this.level,
       interests: interests ?? this.interests,
-      dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
       planId: planId ?? this.planId,
       isConfigured: isConfigured ?? this.isConfigured,
     );
@@ -289,82 +283,12 @@ class LearningSetup {
   Map<String, dynamic> toJson() {
     return {
       'child_name': childName,
-      'age_group': ageGroup,
-      'primary_language': primaryLanguage,
-      'learning_language': learningLanguage,
+      'active_language': activeLanguage,
+      'selected_languages': selectedLanguages,
       'level': level,
       'interests': interests,
-      'daily_goal_minutes': dailyGoalMinutes,
       'plan_id': planId,
     };
-  }
-}
-
-class DailyGoal {
-  const DailyGoal({
-    required this.activityDate,
-    required this.dailyGoalMinutes,
-    required this.targetWords,
-    required this.targetQuizzes,
-    required this.completedWords,
-    required this.completedQuizzes,
-    required this.completedMinutes,
-    required this.isComplete,
-  });
-
-  final String activityDate;
-  final int dailyGoalMinutes;
-  final int targetWords;
-  final int targetQuizzes;
-  final int completedWords;
-  final int completedQuizzes;
-  final int completedMinutes;
-  final bool isComplete;
-
-  double get progress {
-    if (dailyGoalMinutes <= 0) return 0;
-    final value = completedMinutes / dailyGoalMinutes;
-    return value.clamp(0, 1).toDouble();
-  }
-
-  DailyGoal retarget(int minutes) {
-    final nextTargetWords = _targetWords(minutes);
-    final nextTargetQuizzes = _targetQuizzes(minutes);
-
-    return DailyGoal(
-      activityDate: activityDate,
-      dailyGoalMinutes: minutes,
-      targetWords: nextTargetWords,
-      targetQuizzes: nextTargetQuizzes,
-      completedWords: completedWords,
-      completedQuizzes: completedQuizzes,
-      completedMinutes: completedMinutes.clamp(0, minutes).toInt(),
-      isComplete:
-          completedMinutes >= minutes ||
-          (completedWords >= nextTargetWords &&
-              completedQuizzes >= nextTargetQuizzes),
-    );
-  }
-
-  factory DailyGoal.fromJson(Map<String, dynamic>? json) {
-    final source = json ?? const <String, dynamic>{};
-    final minutes = _asInt(source['daily_goal_minutes'], fallback: 15);
-    return DailyGoal(
-      activityDate: _asString(source['activity_date'], fallback: _todayDate()),
-      dailyGoalMinutes: minutes,
-      targetWords: _asInt(
-        source['target_words'],
-        fallback: _targetWords(minutes),
-      ),
-      targetQuizzes: _asInt(
-        source['target_quizzes'],
-        fallback: _targetQuizzes(minutes),
-      ),
-      completedWords: _asInt(source['completed_words']),
-      completedQuizzes: _asInt(source['completed_quizzes']),
-      completedMinutes: _asInt(source['completed_minutes']),
-      isComplete: source['is_complete'] == true,
-    );
   }
 }
 
@@ -425,6 +349,7 @@ class LearningCourse {
     required this.words,
     required this.progress,
     this.imagePath,
+    this.totalWords,
   });
 
   final int id;
@@ -439,6 +364,8 @@ class LearningCourse {
   final List<LearningWord> words;
   final double progress;
   final String? imagePath;
+  final int? totalWords;
+  int get wordCount => totalWords ?? words.length;
 
   String get level {
     if (levels.isEmpty || levels.contains(LearningSetupOptions.allLevels)) {
@@ -460,7 +387,7 @@ class LearningCourse {
   }) {
     final title = _asString(json['title']);
     final category = contentRows.isEmpty
-        ? _cleanCourseTitle(title)
+        ? _asString(json['category'], fallback: _cleanCourseTitle(title))
         : _asString(
             contentRows.first['category'],
             fallback: _cleanCourseTitle(title),
@@ -474,9 +401,8 @@ class LearningCourse {
       phonics: phonics,
     );
     final words = contentRows.map(LearningWord.fromContentJson).toList();
-    final access = _asString(json['show_plan']) == '1'
-        ? LearningAccess.premium
-        : LearningAccess.free;
+    final count = _asInt(json['word_count'], fallback: words.length);
+    final access = _learningAccess(json['show_plan']);
 
     return LearningCourse(
       id: _asInt(json['id']),
@@ -484,14 +410,15 @@ class LearningCourse {
       language: _asString(json['language'], fallback: 'English'),
       levels: levels,
       category: category,
-      description: words.isEmpty
+      description: count == 0
           ? 'New lesson content is coming soon.'
-          : '${words.length} words for ${category.toLowerCase()} practice.',
+          : '$count words for ${category.toLowerCase()} practice.',
       access: access,
       icon: _iconFor(category, title),
       accent: _accentFor(category, title),
       words: words,
-      progress: words.isEmpty ? 0 : 1,
+      progress: 0,
+      totalWords: count,
       imagePath: _nullableString(json['image']),
     );
   }
@@ -517,8 +444,12 @@ List<String> _levelsForCourse({
   }
 
   addLevel(courseJson['level']);
+  for (final level in (courseJson['levels'] as List? ?? const [])) {
+    addLevel(level);
+  }
   for (final row in contentRows) {
     addLevel(row['level']);
+    addLevel(row['category']);
   }
 
   final courseKey = _courseMatchKey(title);
@@ -577,13 +508,21 @@ class LearningWord {
     required this.meaning,
     required this.audioPath,
     required this.imagePath,
+    this.soundPath = '',
   });
 
   final int id;
   final String term;
   final String meaning;
+
+  /// Spoken name, played when this item becomes visible.
   final String audioPath;
   final String imagePath;
+
+  /// The item's own sound, such as an animal call.
+  final String soundPath;
+
+  String get listenAudioPath => soundPath.isNotEmpty ? soundPath : audioPath;
 
   factory LearningWord.fromContentJson(Map<String, dynamic> json) {
     final category = _asString(json['category']);
@@ -593,7 +532,8 @@ class LearningWord {
       id: _asInt(json['id']),
       term: _asString(json['content']),
       meaning: subcategory.isEmpty ? category : '$category • $subcategory',
-      audioPath: _firstNotEmpty([json['word_audio'], json['content_audio']]),
+      audioPath: _asString(json['word_audio']),
+      soundPath: _asString(json['content_audio']),
       imagePath: _asString(json['content_image']),
     );
   }
@@ -634,6 +574,17 @@ class AlphabetItem {
   }
 }
 
+class StorySection {
+  const StorySection({
+    required this.text,
+    required this.imagePath,
+    required this.audioPath,
+  });
+  final String text;
+  final String imagePath;
+  final String audioPath;
+}
+
 class StoryItem {
   const StoryItem({
     required this.id,
@@ -645,6 +596,8 @@ class StoryItem {
     required this.text,
     required this.imagePath,
     required this.audioPath,
+    this.sections = const [],
+    this.isLocked = false,
   });
 
   final int id;
@@ -656,6 +609,8 @@ class StoryItem {
   final String text;
   final String imagePath;
   final String audioPath;
+  final List<StorySection> sections;
+  final bool isLocked;
 
   factory StoryItem.fromJson(Map<String, dynamic> json) {
     final text = _asString(json['text']);
@@ -664,13 +619,24 @@ class StoryItem {
       title: _asString(json['title']),
       language: _asString(json['language'], fallback: 'English'),
       grade: _asString(json['grade'], fallback: 'Beginner'),
-      minutes: _readingMinutes(text),
-      access: _asString(json['show_plan']) == '1'
-          ? LearningAccess.premium
-          : LearningAccess.free,
+      minutes: _asInt(json['reading_minutes']) > 0
+          ? _asInt(json['reading_minutes'])
+          : _readingMinutes(text),
+      isLocked: json['locked'] == true,
+      access: _learningAccess(json['show_plan']),
       text: text,
       imagePath: _asString(json['image']),
       audioPath: _asString(json['audio']),
+      sections: (json['sections'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (row) => StorySection(
+              text: _asString(row['text']),
+              imagePath: _asString(row['image']),
+              audioPath: _asString(row['audio']),
+            ),
+          )
+          .toList(),
     )._normalizedGrade();
   }
 
@@ -685,6 +651,8 @@ class StoryItem {
       text: text,
       imagePath: imagePath,
       audioPath: audioPath,
+      sections: sections,
+      isLocked: isLocked,
     );
   }
 }
@@ -700,6 +668,8 @@ class QuizQuestion {
     required this.feedback,
     required this.wrongFeedback,
     required this.imagePath,
+    this.audioPath = '',
+    this.questionAudioPath = '',
   });
 
   final int id;
@@ -711,6 +681,8 @@ class QuizQuestion {
   final String feedback;
   final String wrongFeedback;
   final String imagePath;
+  final String audioPath;
+  final String questionAudioPath;
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
     final correctAnswer = _asString(json['ca']);
@@ -720,6 +692,9 @@ class QuizQuestion {
       _asString(json['o2']),
       _asString(json['o3']),
     ].where((value) => value.trim().isNotEmpty).toSet().toList();
+    // Keep each question's order stable while avoiding a correct answer that
+    // is always labelled A simply because `ca` is the first API field.
+    options.shuffle(math.Random(_asInt(json['id'])));
 
     return QuizQuestion(
       id: _asInt(json['id']),
@@ -731,6 +706,8 @@ class QuizQuestion {
       feedback: _asString(json['RAFeed'], fallback: 'Great job'),
       wrongFeedback: _asString(json['WAFeed'], fallback: 'Try again'),
       imagePath: _asString(json['image']),
+      audioPath: _asString(json['audio']),
+      questionAudioPath: _asString(json['q_audio']),
     );
   }
 }
@@ -848,21 +825,6 @@ int _readingMinutes(String text) {
       .where((word) => word.isNotEmpty);
   final estimated = (words.length / 80).ceil();
   return estimated < 1 ? 1 : estimated;
-}
-
-int _targetWords(int minutes) {
-  return (minutes / 2).ceil().clamp(3, 30).toInt();
-}
-
-int _targetQuizzes(int minutes) {
-  return (minutes / 10).ceil().clamp(1, 10).toInt();
-}
-
-String _todayDate() {
-  final now = DateTime.now();
-  final month = now.month.toString().padLeft(2, '0');
-  final day = now.day.toString().padLeft(2, '0');
-  return '${now.year}-$month-$day';
 }
 
 IconData _iconFor(String category, String title) {

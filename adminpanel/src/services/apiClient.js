@@ -2,7 +2,8 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:5050/api'
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:5050/api' : 'https://langlex.crisant.com/api')
 
 export const mediaBaseUrl = API_BASE_URL.replace(/\/api$/, '')
 
@@ -29,15 +30,20 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status
-    const message = error.response?.data?.message || error.message || 'Request failed'
+    const message =
+      error.response?.data?.details?.join?.(' · ') ||
+      error.response?.data?.message ||
+      error.message ||
+      'Request failed'
 
     if (status === 401) {
       localStorage.removeItem('langlex_admin_token')
       localStorage.removeItem('langlex_admin_user')
+      window.dispatchEvent(new Event('langlex:session-expired'))
     }
 
     if (!error.config?.silent) {
-      toast.error(message)
+      toast.error(message, { id: `api-${status || 'network'}-${message}` })
     }
 
     return Promise.reject(error)

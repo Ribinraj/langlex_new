@@ -1,3 +1,9 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:langlex_new_app/core/storage_keys.dart';
+import 'package:langlex_new_app/core/widgets/app_shimmer.dart';
+import 'package:langlex_new_app/core/app_toast.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:langlex_new_app/core/colors.dart';
@@ -149,16 +155,51 @@ class LearningAssetSound {
   const LearningAssetSound._();
 
   static final Map<String, AudioPlayer> _players = {};
+  static final _enabled = ValueNotifier(true);
+  static ValueListenable<bool> get enabled => _enabled;
+  static int _revision = 0;
+
+  static Future<void> initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    _enabled.value = prefs.getBool(StorageKeys.soundEffectsEnabled) ?? true;
+    _revision++;
+  }
+
+  static Future<void> setEnabled(bool value) async {
+    _enabled.value = value;
+    _revision++;
+    if (!value) {
+      // These players belong only to decorative asset effects. Lesson audio
+      // uses its own players and is never muted by this preference.
+      await Future.wait(_players.values.map(_silence));
+    }
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool(StorageKeys.soundEffectsEnabled, value)) {
+      throw StateError('Could not save sound preference');
+    }
+  }
+
+  static Future<void> _silence(AudioPlayer player) async {
+    try {
+      await player.setVolume(0);
+      await player.stop();
+    } catch (_) {
+      // A player that has not finished initializing must not block settings.
+    }
+  }
 
   static Future<void> play(String assetPath) async {
-    if (assetPath.trim().isEmpty) return;
-
+    if (!_enabled.value || assetPath.trim().isEmpty) return;
+    final revision = _revision;
     final player = _players.putIfAbsent(assetPath, AudioPlayer.new);
     try {
       await player.setReleaseMode(ReleaseMode.stop);
-      await player.setVolume(1);
       await player.stop();
+      if (!_enabled.value || revision != _revision) return;
+      await player.setVolume(1);
+      if (!_enabled.value || revision != _revision) return;
       await player.play(AssetSource(assetPath));
+      if (!_enabled.value) await _silence(player);
     } catch (_) {
       // Asset sounds are decorative and should never interrupt learning.
     }
@@ -186,7 +227,6 @@ class LearningAssetSound {
     final sounds = [
       KidsLearningAssets.successChimeSound,
       KidsLearningAssets.navLibrarySound,
-      KidsLearningAssets.navPracticeSound,
       KidsLearningAssets.navProfileSound,
     ];
     final safeIndex = index.clamp(0, sounds.length - 1);
@@ -200,42 +240,144 @@ class LearningAudioButton extends StatefulWidget {
     required this.path,
     this.tooltip,
     this.filled = false,
+    this.autoplayPath = '',
+    this.active = true,
   });
 
   final String path;
   final String? tooltip;
   final bool filled;
+  final String autoplayPath;
+  final bool active;
 
   @override
   State<LearningAudioButton> createState() => _LearningAudioButtonState();
 }
 
 class _LearningAudioButtonState extends State<LearningAudioButton> {
-  final AudioPlayer _player = AudioPlayer();
-  bool _playing = false;
+  // Lesson clips share ownership, while decorative asset effects stay separate.
+  static _LearningAudioButtonState? _activeButton;
+  static Future<void>? _audioChanges;
 
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
+  // Serialize native stop/resume calls, but never wait for another button's
+  // network source load. A slow old clip cannot start after a newer selection.
+  static Future<void> _changeAudio(Future<void> Function() change) {
+    final operation = (_audioChanges ?? Future<void>.value()).then(
+      (_) => change(),
+    );
+    final settled = operation.then<void>((_) {}, onError: (Object _) {});
+    _audioChanges = settled;
+    settled.then((_) {
+      if (identical(_audioChanges, settled)) _audioChanges = null;
+    });
+    return operation;
   }
 
-  Future<void> _play() async {
-    final url = Endpoints.mediaUrl(widget.path);
-    if (url.isEmpty || _playing) return;
+  AudioPlayer? _player;
+  StreamSubscription<void>? _completion;
+  bool _playing = false;
+  int _playbackRequest = 0;
+  Future<void> _pendingPlayback = Future.value();
 
-    setState(() => _playing = true);
-    try {
-      await _player.stop();
-      await _player.play(UrlSource(url));
-    } finally {
-      if (mounted) setState(() => _playing = false);
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.active && widget.autoplayPath.isNotEmpty) {
+        _playPath(widget.autoplayPath, reportError: false);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant LearningAudioButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active ||
+        oldWidget.path != widget.path ||
+        oldWidget.autoplayPath != widget.autoplayPath) {
+      _playPath(widget.active ? widget.autoplayPath : '', reportError: false);
     }
   }
 
   @override
+  void dispose() {
+    _playbackRequest++;
+    if (identical(_activeButton, this)) _activeButton = null;
+    _completion?.cancel();
+    _stopPlayback();
+    _pendingPlayback.then((_) async {
+      try {
+        await _player?.dispose();
+      } catch (_) {
+        // The route can close while a native player is still loading.
+      }
+    });
+    super.dispose();
+  }
+
+  Future<void> _stopPlayback() => _changeAudio(() async {
+    if (mounted && _playing) setState(() => _playing = false);
+    await _player?.stop();
+  }).catchError((Object _) {});
+
+  bool _isCurrent(int request) =>
+      mounted &&
+      widget.active &&
+      request == _playbackRequest &&
+      identical(_activeButton, this);
+
+  AudioPlayer _getPlayer() {
+    if (_player != null) return _player!;
+    final player = _player = AudioPlayer();
+    _completion = player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+    return player;
+  }
+
+  Future<void> _play() => _playPath(widget.path);
+
+  Future<void> _playPath(String path, {bool reportError = true}) {
+    final request = ++_playbackRequest;
+    final url = widget.active ? Endpoints.mediaUrl(path) : '';
+    if (url.isEmpty) {
+      if (identical(_activeButton, this)) _activeButton = null;
+      return _stopPlayback();
+    }
+    final previous = _activeButton;
+    _activeButton = this;
+    if (previous != null && !identical(previous, this)) {
+      previous._playbackRequest++;
+      previous._stopPlayback();
+    }
+    // This button still serializes its own source changes. Other buttons can
+    // take over immediately, even while this source is waiting on the network.
+    _pendingPlayback = _pendingPlayback.then((_) async {
+      if (!_isCurrent(request)) return;
+      setState(() => _playing = true);
+      try {
+        final player = _getPlayer();
+        await _changeAudio(() => player.stop());
+        if (!_isCurrent(request)) return;
+        await player.setSource(UrlSource(url));
+        await _changeAudio(() async {
+          if (_isCurrent(request)) await player.resume();
+        });
+      } catch (_) {
+        if (_isCurrent(request)) {
+          setState(() => _playing = false);
+          if (reportError && mounted) {
+            AppToast.error(context, 'This audio is currently unavailable.');
+          }
+        }
+      }
+    });
+    return _pendingPlayback;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasAudio = widget.path.trim().isNotEmpty;
+    final hasAudio = widget.active && widget.path.trim().isNotEmpty;
     final icon = _playing
         ? Icons.graphic_eq_rounded
         : hasAudio
@@ -271,6 +413,16 @@ class _FallbackImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return LayoutBuilder(
+        builder: (context, constraints) => AppShimmer(
+          child: SkeletonBlock(
+            height: constraints.hasBoundedHeight ? constraints.maxHeight : 60,
+            width: constraints.hasBoundedWidth ? constraints.maxWidth : 60,
+          ),
+        ),
+      );
+    }
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -290,15 +442,6 @@ class _FallbackImage extends StatelessWidget {
           ),
           child: Icon(icon, color: accent, size: 34),
         ),
-        if (loading)
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: accent.withValues(alpha: 0.72),
-            ),
-          ),
       ],
     );
   }

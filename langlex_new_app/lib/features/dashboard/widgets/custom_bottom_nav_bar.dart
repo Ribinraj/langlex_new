@@ -20,48 +20,45 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(36));
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 430),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: radius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: Appcolors.kwhitecolor.withValues(alpha: 0.78),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Appcolors.kbottomNavShadow.withValues(alpha: 0.23),
-                  blurRadius: 22,
-                  offset: const Offset(0, 9),
-                ),
-                BoxShadow(
-                  color: Appcolors.kwhitecolor.withValues(alpha: 0.74),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              height: 54,
-              child: Row(
-                children: [
-                  for (var index = 0; index < items.length; index++)
-                    Expanded(
-                      child: _BottomNavButton(
-                        item: items[index],
-                        isSelected: selectedIndex == index,
-                        onTap: () => onTap(index),
-                      ),
-                    ),
+              borderRadius: radius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Appcolors.kbottomGlassTop.withValues(alpha: .94),
+                  Appcolors.kbottomGlassBottom.withValues(alpha: .90),
                 ],
+              ),
+              border: Border.all(
+                color: Appcolors.kbottomGlassSelected.withValues(alpha: .12),
+                width: 1,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(7),
+              child: SizedBox(
+                height: 54,
+                child: Row(
+                  children: [
+                    for (var index = 0; index < items.length; index++)
+                      Expanded(
+                        child: _BottomNavButton(
+                          item: items[index],
+                          isSelected: selectedIndex == index,
+                          onTap: () => onTap(index),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -97,10 +94,11 @@ class _BottomNavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = isSelected
-        ? Appcolors.kbottomNavActive
-        : Appcolors.kbottomNavInactive;
+        ? Appcolors.kbottomGlassSelected
+        : Appcolors.kbottomGlassForeground;
 
     return Semantics(
+      excludeSemantics: true,
       selected: isSelected,
       button: true,
       label: item.label,

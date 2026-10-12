@@ -1,14 +1,29 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { apiClient } from '../../services/apiClient'
 
-const savedAdmin = localStorage.getItem('langlex_admin_user')
+let savedAdmin = null
+try {
+  savedAdmin = JSON.parse(localStorage.getItem('langlex_admin_user') || 'null')
+} catch {
+  localStorage.removeItem('langlex_admin_user')
+}
 
-export const loginAdmin = createAsyncThunk('auth/loginAdmin', async (payload) => {
-  const { data } = await apiClient.post('/admin/auth/login', payload)
-  localStorage.setItem('langlex_admin_token', data.token)
-  localStorage.setItem('langlex_admin_user', JSON.stringify(data.admin))
-  return data
-})
+export const loginAdmin = createAsyncThunk(
+  'auth/loginAdmin',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post('/admin/auth/login', payload)
+      localStorage.setItem('langlex_admin_token', data.token)
+      localStorage.setItem('langlex_admin_user', JSON.stringify(data.admin))
+      return data
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          'Unable to sign in. Check your connection and try again.',
+      )
+    }
+  },
+)
 
 export const restoreAdmin = createAsyncThunk('auth/restoreAdmin', async () => {
   const { data } = await apiClient.get('/admin/auth/me', { silent: true })
@@ -20,7 +35,7 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: {
     token: localStorage.getItem('langlex_admin_token') || '',
-    admin: savedAdmin ? JSON.parse(savedAdmin) : null,
+    admin: savedAdmin,
     status: 'idle',
     error: '',
   },
@@ -29,6 +44,7 @@ const authSlice = createSlice({
       state.token = ''
       state.admin = null
       state.status = 'idle'
+      state.error = ''
       localStorage.removeItem('langlex_admin_token')
       localStorage.removeItem('langlex_admin_user')
     },
@@ -46,7 +62,7 @@ const authSlice = createSlice({
       })
       .addCase(loginAdmin.rejected, (state, action) => {
         state.status = 'error'
-        state.error = action.error.message || 'Unable to sign in'
+        state.error = action.payload || 'Unable to sign in'
       })
       .addCase(restoreAdmin.pending, (state) => {
         state.status = 'checking'

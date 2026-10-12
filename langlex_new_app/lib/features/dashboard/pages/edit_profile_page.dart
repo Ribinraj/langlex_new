@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/api_exception.dart';
@@ -74,20 +76,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (!mounted) return;
       context.read<AuthBloc>().add(UserChangedEvent(user));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.profileUpdated)));
+      AppToast.success(context, t.profileUpdated);
       Navigator.of(context).pop();
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      AppToast.error(context, error.message);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.couldNotUpdateProfile)));
+      AppToast.error(context, t.couldNotUpdateProfile);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -97,13 +93,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(title: Text(t.editProfile)),
+
       bottomNavigationBar: _SaveProfileBar(
         label: _saving ? t.saving : t.saveChanges,
         saving: _saving,
         onSave: _saving ? null : _save,
       ),
-      body: SingleChildScrollView(
+      body: FlowScrollView(
+        header: FlowPageHeader(title: t.editProfile),
         padding: ResponsiveUtils.pagePadding(
           context,
           mobileHorizontalPercent: 6,

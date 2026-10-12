@@ -5,7 +5,10 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "import:original": "node scripts/import-original-content.js",
+    "test": "node --test test/*.test.js",
+    "dev:ensure": "node scripts/ensure-local-server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -13,6 +16,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.4.1",
+    "file-type": "^22.1.1",
     "firebase-admin": "^13.10.0",
     "helmet": "^8.0.0",
     "joi": "^17.13.3",
@@ -24,6 +28,6 @@
     "nodemon": "^3.1.7"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }

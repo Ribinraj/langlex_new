@@ -28,8 +28,7 @@ class Endpoints {
   static const updateProfile = 'user/profile';
   static const updatePushToken = 'user/push-token';
   static const learningSetup = 'user/learning-setup';
-  static const dailyGoal = 'user/daily-goal';
-  static const dailyGoalProgress = 'user/daily-goal/progress';
+  static const learningProgress = 'user/learning-progress';
   static const contentProgress = 'user/content-progress';
   static const contentProgressItem = 'user/content-progress/item';
   static const contentProgressRestart = 'user/content-progress/restart';

@@ -2,6 +2,7 @@ import { Stack, Typography } from '@mui/material'
 import { useCallback, useState } from 'react'
 import AppDataTable from '../components/AppDataTable'
 import DataToolbar from '../components/DataToolbar'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import PageHeader from '../components/PageHeader'
 import StatusChip from '../components/StatusChip'
 import { adminApi } from '../services/adminApi'
@@ -11,19 +12,20 @@ import { useAsyncData } from '../hooks/useAsyncData'
 export default function PaymentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const query = useDebouncedValue(search)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const loadPayments = useCallback(
-    () => adminApi.payments({ page, limit, search, status }),
-    [page, limit, search, status],
+    () => adminApi.payments({ page, limit, search: query, status }),
+    [page, limit, query, status],
   )
-  const { data, loading } = useAsyncData(loadPayments)
+  const { data, loading, error, reload } = useAsyncData(loadPayments)
 
   return (
     <>
       <PageHeader
         title="Payments"
-        subtitle="Track dummy payment orders and provider metadata. The backend contract is ready for a real gateway swap."
+        subtitle="Review payment orders, amounts and payment status."
       />
       <DataToolbar
         search={search}
@@ -46,6 +48,8 @@ export default function PaymentsPage() {
         ]}
       />
       <AppDataTable
+        error={error}
+        onRetry={reload}
         loading={loading}
         rows={data?.items || []}
         page={data?.page || page}
@@ -71,11 +75,35 @@ export default function PaymentsPage() {
             ),
           },
           { key: 'plan_name', label: 'Plan', minWidth: 170 },
+          {
+            key: 'provider',
+            label: 'Provider',
+            render: (row) =>
+              row.provider === 'dummy' ? 'Test (dummy)' : row.provider,
+          },
           { key: 'provider_order_id', label: 'Provider Order', minWidth: 250 },
-          { key: 'amount', label: 'Amount', render: (row) => currency(row.amount) },
-          { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
-          { key: 'created_at', label: 'Created', minWidth: 170, render: (row) => formatDateTime(row.created_at) },
-          { key: 'updated_at', label: 'Updated', minWidth: 170, render: (row) => formatDateTime(row.updated_at) },
+          {
+            key: 'amount',
+            label: 'Amount',
+            render: (row) => currency(row.amount),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            render: (row) => <StatusChip value={row.status} />,
+          },
+          {
+            key: 'created_at',
+            label: 'Created',
+            minWidth: 170,
+            render: (row) => formatDateTime(row.created_at),
+          },
+          {
+            key: 'updated_at',
+            label: 'Updated',
+            minWidth: 170,
+            render: (row) => formatDateTime(row.updated_at),
+          },
         ]}
       />
     </>

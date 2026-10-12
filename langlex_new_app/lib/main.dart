@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,8 +9,10 @@ import 'package:langlex_new_app/core/responsiveutils.dart';
 import 'package:langlex_new_app/core/routes/approuter.dart';
 import 'package:langlex_new_app/core/routes/approutes.dart';
 import 'package:langlex_new_app/features/authentication/auth_repo.dart';
+import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
 import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
+import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
 import 'package:langlex_new_app/features/learning/learning_repo.dart';
 import 'package:langlex_new_app/features/notifications/notification_repo.dart';
 import 'package:langlex_new_app/features/payments/payment_repo.dart';
@@ -17,6 +20,7 @@ import 'package:langlex_new_app/features/payments/payment_repo.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  await LearningAssetSound.initialize();
   await PushNotificationService.instance.initialize(
     onNotificationTap: (_) => AppRouter.router.go(AppRoutes.notifications),
   );
@@ -44,6 +48,7 @@ class LanglexNewApp extends StatelessWidget {
         RepositoryProvider(create: (_) => AuthRepository(DioClient.create())),
         RepositoryProvider(
           create: (_) => LearningRepository(DioClient.create()),
+          dispose: (repository) => repository.progress.dispose(),
         ),
         RepositoryProvider(
           create: (_) => PaymentRepository(DioClient.create()),
@@ -62,28 +67,60 @@ class LanglexNewApp extends StatelessWidget {
                 LearningBloc(context.read<LearningRepository>()),
           ),
         ],
-        child: MaterialApp.router(
-          title: 'Langlex',
-          debugShowCheckedModeBanner: false,
-          routerConfig: AppRouter.router,
-          builder: (context, child) {
-            ResponsiveUtils().init(context);
-            return child ?? const SizedBox.shrink();
-          },
-          theme: baseTheme.copyWith(
-            textTheme: GoogleFonts.montserratTextTheme(baseTheme.textTheme),
-            primaryTextTheme: GoogleFonts.montserratTextTheme(
-              baseTheme.primaryTextTheme,
+        child: MultiBlocListener(
+          listeners: [
+            BlocListener<AuthBloc, AuthState>(
+              listener: (context, state) {
+                if (state is AuthSessionEnded) {
+                  AppRouter.router.go(AppRoutes.login);
+                }
+                if (state is AuthAuthenticated ||
+                    state is AuthOtpVerified ||
+                    state is AuthUnauthenticated) {
+                  context.read<LearningRepository>().progress.bindAccount();
+                }
+              },
             ),
-            appBarTheme: baseTheme.appBarTheme.copyWith(
-              backgroundColor: Appcolors.kbackgroundcolor,
-              foregroundColor: Appcolors.ktextdark,
-              centerTitle: true,
-              elevation: 0,
-              titleTextStyle: GoogleFonts.montserrat(
-                color: Appcolors.ktextdark,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+            BlocListener<LearningBloc, LearningState>(
+              listenWhen: (previous, current) =>
+                  current is LearningLoaded &&
+                  (previous is! LearningLoaded ||
+                      previous.catalog.setup.level !=
+                          current.catalog.setup.level ||
+                      previous.catalog.setup.activeLanguage !=
+                          current.catalog.setup.activeLanguage),
+              listener: (context, state) {
+                if (state is LearningLoaded) {
+                  context.read<LearningRepository>().progress.refresh(
+                    state.catalog.setup.activeLanguage,
+                  );
+                }
+              },
+            ),
+          ],
+          child: MaterialApp.router(
+            title: 'Langlex',
+            debugShowCheckedModeBanner: false,
+            routerConfig: AppRouter.router,
+            builder: (context, child) {
+              ResponsiveUtils().init(context);
+              return child ?? const SizedBox.shrink();
+            },
+            theme: baseTheme.copyWith(
+              textTheme: GoogleFonts.montserratTextTheme(baseTheme.textTheme),
+              primaryTextTheme: GoogleFonts.montserratTextTheme(
+                baseTheme.primaryTextTheme,
+              ),
+              appBarTheme: baseTheme.appBarTheme.copyWith(
+                backgroundColor: Appcolors.kbackgroundcolor,
+                foregroundColor: Appcolors.ktextdark,
+                centerTitle: true,
+                elevation: 0,
+                titleTextStyle: GoogleFonts.montserrat(
+                  color: Appcolors.ktextdark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

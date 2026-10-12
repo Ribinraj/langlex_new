@@ -1,10 +1,10 @@
 const notificationService = require('../../../application/notification/notificationService');
 
 const listNotifications = async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 30, 100);
+  const paging = require('../../../shared/utils/pagination').pagination(req.query);
   const result = await notificationService.listNotifications({
     userId: req.user.id,
-    limit,
+    ...paging,
   });
   res.json(result);
 };

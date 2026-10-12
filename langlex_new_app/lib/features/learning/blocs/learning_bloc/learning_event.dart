@@ -15,15 +15,3 @@ class SaveLearningSetupEvent extends LearningEvent {
 
   final LearningSetup setup;
 }
-
-class RecordDailyProgressEvent extends LearningEvent {
-  const RecordDailyProgressEvent({
-    required this.activityType,
-    required this.activityKey,
-    this.estimatedMinutes,
-  });
-
-  final String activityType;
-  final String activityKey;
-  final int? estimatedMinutes;
-}

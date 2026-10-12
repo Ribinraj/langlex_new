@@ -1,6 +1,8 @@
 import { Chip } from '@mui/material'
 
 const colorMap = {
+  blocked: 'error',
+  scheduled: 'info',
   active: 'success',
   paid: 'success',
   completed: 'success',
@@ -22,7 +24,11 @@ export default function StatusChip({ value, size = 'small' }) {
       label={text.replace(/_/g, ' ')}
       color={colorMap[text.toLowerCase()] || 'default'}
       variant={colorMap[text.toLowerCase()] ? 'filled' : 'outlined'}
-      sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+      sx={{
+        alignSelf: 'flex-start',
+        fontWeight: 700,
+        textTransform: 'capitalize',
+      }}
     />
   )
 }

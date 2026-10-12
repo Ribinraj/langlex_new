@@ -91,6 +91,7 @@ const findActiveSubscriptionByUserId = async (userId) => {
      JOIN subsc_plans sp ON sp.id = us.plan_id
      WHERE us.user_id = ?
        AND us.status = 'active'
+       AND us.started_at <= NOW()
        AND (us.expires_at IS NULL OR us.expires_at > NOW())
      ORDER BY us.created_at DESC
      LIMIT 1`,

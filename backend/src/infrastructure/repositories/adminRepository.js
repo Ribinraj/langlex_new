@@ -1,4 +1,6 @@
 const { pool } = require('../database/db');
+const ApiError = require('../../shared/errors/apiError');
+const subscriptionStatusSql = "CASE WHEN us.status = 'active' AND us.expires_at IS NOT NULL AND us.expires_at <= NOW() THEN 'expired' WHEN us.status = 'active' AND us.started_at > NOW() THEN 'scheduled' ELSE us.status END";
 
 const adminPublicColumns =
   'id, full_name, email, role, is_active, last_login_at, created_at, updated_at';
@@ -171,13 +173,13 @@ const getOverview = async () => {
     [notifications],
   ] = await Promise.all([
     pool.execute('SELECT COUNT(*) AS total FROM users'),
-    pool.execute('SELECT COUNT(*) AS total FROM courses'),
+    pool.execute("SELECT COUNT(*) AS total FROM learning_topics WHERE resource='courses'"),
     pool.execute('SELECT COUNT(*) AS total FROM Content'),
     pool.execute('SELECT COUNT(*) AS total FROM quizz'),
     pool.execute(
       `SELECT COUNT(*) AS total
        FROM user_subscriptions
-       WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW())`,
+       WHERE status = 'active' AND started_at <= NOW() AND (expires_at IS NULL OR expires_at > NOW())`,
     ),
     pool.execute('SELECT COUNT(*) AS total FROM payment_orders'),
     pool.execute(
@@ -210,15 +212,6 @@ const getOverview = async () => {
      GROUP BY DATE(updated_at)
      ORDER BY DATE(updated_at)`,
   );
-  const [activityTrend] = await pool.execute(
-    `SELECT activity_date AS date,
-            COUNT(*) AS activities,
-            COALESCE(SUM(estimated_minutes), 0) AS minutes
-     FROM user_daily_learning_events
-     WHERE activity_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
-     GROUP BY activity_date
-     ORDER BY activity_date`,
-  );
   const [contentMix] = await pool.execute(
     `SELECT content_type, COUNT(*) AS total
      FROM user_content_progress
@@ -240,11 +233,6 @@ const getOverview = async () => {
     },
     recent_users: recentUsers,
     revenue_trend: normalizeTrend(revenueTrend, 'revenue'),
-    activity_trend: activityTrend.map((row) => ({
-      date: dateOnly(row.date),
-      activities: Number(row.activities || 0),
-      minutes: Number(row.minutes || 0),
-    })),
     content_mix: contentMix.map((row) => ({
       name: row.content_type,
       value: Number(row.total || 0),
@@ -258,7 +246,7 @@ const normalizeTrend = (rows, metric) =>
     [metric]: Number(row[metric] || 0),
   }));
 
-const listUsers = async ({ page = 1, limit = 10, search = '', status = '' }) => {
+const listUsers = async ({ page = 1, limit = 10, search = '', status = '', account = '' }) => {
   const safeLimit = clampLimit(limit);
   const offset = offsetFor(page, safeLimit);
   const where = [];
@@ -271,6 +259,7 @@ const listUsers = async ({ page = 1, limit = 10, search = '', status = '' }) => 
     params.push(like(search), like(search), like(search), like(search), like(search));
   }
 
+  if (account) {where.push('u.is_blocked = ?');params.push(account === 'blocked' ? 1 : 0);}
   if (status === 'active') {
     where.push('us.id IS NOT NULL');
   } else if (status === 'inactive') {
@@ -281,7 +270,11 @@ const listUsers = async ({ page = 1, limit = 10, search = '', status = '' }) => 
   const activeSubscriptionJoin = `LEFT JOIN user_subscriptions us
        ON us.user_id = u.id
       AND us.status = 'active'
-      AND (us.expires_at IS NULL OR us.expires_at > NOW())`;
+      AND us.started_at <= NOW()
+      AND (us.expires_at IS NULL OR us.expires_at > NOW())
+      AND us.id = (SELECT MAX(current_sub.id) FROM user_subscriptions current_sub
+        WHERE current_sub.user_id = u.id AND current_sub.status = 'active' AND current_sub.started_at <= NOW()
+        AND (current_sub.expires_at IS NULL OR current_sub.expires_at > NOW()))`;
   const [[countRow]] = await pool.execute(
     `SELECT COUNT(*) AS total
      FROM users u
@@ -291,9 +284,8 @@ const listUsers = async ({ page = 1, limit = 10, search = '', status = '' }) => 
   );
   const [items] = await pool.execute(
     `SELECT u.id, u.mobile_number, u.full_name, u.email, u.school, u.city, u.state,
-            u.push_token, u.created_at, u.updated_at,
-            uls.child_name, uls.age_group, uls.learning_language, uls.level,
-            uls.daily_goal_minutes,
+            u.is_blocked, u.block_reason, u.blocked_at, u.created_at, u.updated_at,
+            uls.child_name, uls.learning_language, uls.level,
             sp.name AS plan_name,
             us.status AS subscription_status,
             us.expires_at AS subscription_expires_at,
@@ -327,7 +319,7 @@ const listUsers = async ({ page = 1, limit = 10, search = '', status = '' }) => 
 const getUserDetail = async (userId) => {
   const [[user]] = await pool.execute(
     `SELECT id, mobile_number, full_name, email, school, city, state,
-            push_token, created_at, updated_at
+            is_blocked, block_reason, blocked_at, created_at, updated_at
      FROM users
      WHERE id = ?
      LIMIT 1`,
@@ -337,7 +329,8 @@ const getUserDetail = async (userId) => {
   if (!user) return null;
 
   const [[learningSetup]] = await pool.execute(
-    `SELECT *
+    `SELECT user_id, child_name, primary_language, learning_language,
+            level, interests, selected_languages, plan_id, created_at, updated_at
      FROM user_learning_setups
      WHERE user_id = ?
      LIMIT 1`,
@@ -351,16 +344,8 @@ const getUserDetail = async (userId) => {
      LIMIT 50`,
     [userId],
   );
-  const [dailyEvents] = await pool.execute(
-    `SELECT *
-     FROM user_daily_learning_events
-     WHERE user_id = ?
-     ORDER BY activity_date DESC, created_at DESC
-     LIMIT 50`,
-    [userId],
-  );
   const [subscriptions] = await pool.execute(
-    `SELECT us.*, sp.name AS plan_name, sp.type, sp.amount, sp.plan_timeperiod
+    `SELECT us.*, ${subscriptionStatusSql} AS status, sp.name AS plan_name, sp.type, sp.amount, sp.plan_timeperiod
      FROM user_subscriptions us
      JOIN subsc_plans sp ON sp.id = us.plan_id
      WHERE us.user_id = ?
@@ -386,9 +371,8 @@ const getUserDetail = async (userId) => {
 
   return {
     user,
-    learning_setup: normalizeJsonRow(learningSetup, ['interests']),
+    learning_setup: normalizeJsonRow(learningSetup, ['interests','selected_languages']),
     progress: progress.map((row) => normalizeJsonRow(row, ['metadata'])),
-    daily_events: dailyEvents,
     subscriptions,
     payments: payments.map((row) => normalizeJsonRow(row, ['metadata'])),
     notifications,
@@ -468,7 +452,7 @@ const listSubscriptions = async ({ page = 1, limit = 10, search = '', status }) 
     params.push(like(search), like(search), like(search));
   }
   if (status) {
-    where.push('us.status = ?');
+    where.push(`${subscriptionStatusSql} = ?`);
     params.push(status);
   }
 
@@ -482,7 +466,7 @@ const listSubscriptions = async ({ page = 1, limit = 10, search = '', status }) 
     params,
   );
   const [items] = await pool.execute(
-    `SELECT us.*, u.full_name, u.mobile_number, sp.name AS plan_name,
+    `SELECT us.*, ${subscriptionStatusSql} AS status, u.full_name, u.mobile_number, sp.name AS plan_name,
             sp.type, sp.amount, sp.plan_timeperiod
      FROM user_subscriptions us
      JOIN users u ON u.id = us.user_id
@@ -600,6 +584,7 @@ const getResource = async (resource, id) => {
 
 const createResource = async (resource, payload) => {
   const definition = getResourceDefinition(resource);
+  await validateResourcePayload(resource, definition, payload, true);
   const columns = definition.columns;
   const values = columns.map((column) => valueForColumn(definition, column, payload[column]));
   const [result] = await pool.execute(
@@ -613,28 +598,14 @@ const createResource = async (resource, payload) => {
 
 const updateResource = async (resource, id, payload) => {
   const definition = getResourceDefinition(resource);
-  const columns = definition.columns.filter((column) =>
-    Object.prototype.hasOwnProperty.call(payload, column),
-  );
-  if (columns.length === 0) return getResource(resource, id);
-
-  await pool.execute(
-    `UPDATE \`${definition.table}\`
-     SET ${columns.map((column) => `\`${column}\` = ?`).join(', ')}
-     WHERE id = ?`,
-    [...columns.map((column) => valueForColumn(definition, column, payload[column])), id],
-  );
-  return getResource(resource, id);
+  const existing = await getResource(resource,id);
+  if (!existing) return null;
+  await validateResourcePayload(resource, definition, payload, false, existing);
+  await require('./adminContentRelations').update(definition,resource,id,payload,valueForColumn);
+  return getResource(resource,id);
 };
 
-const deleteResource = async (resource, id) => {
-  const definition = getResourceDefinition(resource);
-  const [result] = await pool.execute(
-    `DELETE FROM \`${definition.table}\` WHERE id = ?`,
-    [id],
-  );
-  return result.affectedRows > 0;
-};
+const deleteResource = async (resource,id) => require('./adminContentRelations').remove(getResourceDefinition(resource),resource,id);
 
 const getResourceSchema = () =>
   Object.entries(learningResources).map(([key, definition]) => ({
@@ -644,7 +615,7 @@ const getResourceSchema = () =>
   }));
 
 const getResourceDefinition = (resource) => {
-  const definition = learningResources[resource];
+  const definition = Object.hasOwn(learningResources, resource) ? learningResources[resource] : null;
   if (!definition) {
     const error = new Error('Unknown learning resource');
     error.statusCode = 404;
@@ -653,9 +624,57 @@ const getResourceDefinition = (resource) => {
   return definition;
 };
 
+const validateResourcePayload = async (resource, definition, payload, creating, existing = {}) => {
+  if (resource === 'quizzes' && Object.hasOwn(payload,'show_plan')) throw new ApiError('Access is managed for the whole quiz topic. Use Edit topic.',422);
+  const parentField = ({quizzes:'topic',phonics:'coursename',alphabets:'coursename',content:'course'})[resource];
+  if (parentField && (creating || Object.hasOwn(payload,parentField)) && !String(payload[parentField] || '').trim()) throw new ApiError('Choose or enter a topic before saving this item.',422);
+  const primary = ({ content: 'content', alphabets: 'letter', quizzes: 'Question', phonics: 'word', plans: 'name' })[resource] || 'title';
+  if ((creating || Object.hasOwn(payload, primary)) && (typeof payload[primary] !== 'string' || !payload[primary].trim())) {
+    throw new ApiError(`${primary} is required`, 422);
+  }
+  for (const column of definition.columns) {
+    if (!Object.hasOwn(payload, column)) continue;
+    const value = payload[column];
+    if ((definition.jsonColumns || []).includes(column)) {
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (!parsed || typeof parsed !== 'object') throw new Error();
+      } catch { throw new ApiError(`${column} must be a JSON object or array`, 422); }
+    } else if (value != null && typeof value !== 'string' && typeof value !== 'number') {
+      throw new ApiError(`${column} must be text or a number`, 422);
+    }
+  }
+  const combined = { ...existing, ...payload };
+  const languageField = definition.columns.includes('language') ? 'language' : definition.columns.includes('Language') ? 'Language' : null;
+  if (languageField && Object.hasOwn(payload,languageField) && payload[languageField] !== existing[languageField] && !String(payload[languageField] || '').trim()) throw new ApiError('Language is required',422);
+  if (Object.hasOwn(payload,'show_plan') && payload.show_plan !== existing.show_plan && !String(payload.show_plan || '').trim()) throw new ApiError('Choose an access value',422);
+  const { options } = await require('./adminCatalogRepository').formOptions(resource,combined[languageField] || '');
+  for (const [field, values] of Object.entries(options)) {
+    if (!Object.hasOwn(payload,field) || payload[field] === existing[field] || payload[field] == null || payload[field] === '') continue;
+    if (!values.some(value => String(value).toLowerCase() === String(payload[field]).toLowerCase())) throw new ApiError(`Choose an existing ${field} value from the catalog`,422);
+  }
+  if (creating && languageField && !String(combined[languageField] || '').trim()) throw new ApiError('Language is required',422);
+  if (resource === 'quizzes' && (creating || ['ca','o1','o2','o3'].some(field => Object.hasOwn(payload,field)))) {
+    const answers = [combined.ca,combined.o1,combined.o2,combined.o3].map(value => String(value || '').trim()).filter(Boolean);
+    if (!String(combined.ca || '').trim() || new Set(answers).size < 2) throw new ApiError('A quiz needs a correct answer and at least one different alternative',422);
+  }
+  if (resource === 'plans') {
+    if (Object.hasOwn(payload,'permission') && JSON.stringify(payload.permission) !== JSON.stringify(existing.permission)) {
+      const permission = typeof payload.permission === 'string' ? JSON.parse(payload.permission) : payload.permission;
+      if (Object.keys(permission || {}).length) throw new ApiError('Per-content permissions are not supported. Plan access is determined by Free or Premium type.',422);
+    }
+    if ((creating || Object.hasOwn(payload,'type')) && !['free','premium'].includes(combined.type)) throw new ApiError('Choose a Free or Premium plan',422);
+    if (combined.type === 'free' && Number(combined.amount || 0) !== 0) throw new ApiError('Free plans must have a zero price',422);
+    if (combined.type === 'premium' && (!String(combined.plan_timeperiod || '').trim() || !require('../../shared/utils/subscriptionExpiry').buildExpiry(new Date(),combined.plan_timeperiod))) throw new ApiError('Choose a valid subscription period',422);
+  }
+  if (resource === 'plans' && Object.hasOwn(payload, 'amount') && (!Number.isFinite(Number(payload.amount)) || Number(payload.amount) < 0)) {
+    throw new ApiError('Amount must be zero or more', 422);
+  }
+};
+
 const valueForColumn = (definition, column, value) => {
   if ((definition.jsonColumns || []).includes(column) && typeof value !== 'string') {
-    return JSON.stringify(value || {});
+    return JSON.stringify(value || []);
   }
   if (value == null) return '';
   return value;
@@ -709,4 +728,5 @@ module.exports = {
   updateResource,
   deleteResource,
   getResourceSchema,
+  validateResource: (resource,payload,existing) => validateResourcePayload(resource,getResourceDefinition(resource),payload,!existing,existing),
 };

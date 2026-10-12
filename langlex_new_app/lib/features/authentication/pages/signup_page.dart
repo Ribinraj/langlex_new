@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/core/app_toast.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -117,9 +118,7 @@ class _SignupPageState extends State<SignupPage>
         } else if (state is AuthAuthenticated) {
           context.go(AppRoutes.dashboard);
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(state.message)));
+          AppToast.error(context, state.message);
         }
       },
       builder: (context, state) {

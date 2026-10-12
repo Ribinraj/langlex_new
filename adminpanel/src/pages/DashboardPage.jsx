@@ -1,9 +1,10 @@
 import {
-  CheckCircleRounded,
-  MenuBookRounded,
-  PaidRounded,
+  ArrowForwardRounded,
+  AutoStoriesRounded,
   PeopleRounded,
-  QueryStatsRounded,
+  PaymentsRounded,
+  CardMembershipRounded,
+  AddRounded,
 } from '@mui/icons-material'
 import {
   Avatar,
@@ -13,337 +14,415 @@ import {
   CardContent,
   Chip,
   Grid,
+  Skeleton,
   Stack,
   Typography,
+  useTheme,
 } from '@mui/material'
 import { useCallback } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
-import StatusChip from '../components/StatusChip'
+import EmptyState from '../components/EmptyState'
+import { useAsyncData } from '../hooks/useAsyncData'
 import { adminApi } from '../services/adminApi'
 import { currency, formatDate, number } from '../utils/formatters'
-import { useAsyncData } from '../hooks/useAsyncData'
-
-const colors = ['#8E5CE6', '#5C9B81', '#DC8E2E', '#4B80D7']
-
 export default function DashboardPage() {
-  const loadOverview = useCallback(() => adminApi.overview(), [])
-  const { data, loading } = useAsyncData(loadOverview)
+  const theme = useTheme()
+  const loader = useCallback(() => adminApi.overview(), [])
+  const { data, loading, error, reload } = useAsyncData(loader)
   const stats = data?.stats || {}
-  const activityTrend = normalizedActivity(data?.activity_trend || [])
-  const revenueTrend = normalizedRevenue(data?.revenue_trend || [])
-  const progressMix = normalizedMix(data?.content_mix || [])
-  const activitySparkline = activityTrend.map((item) => item.minutes)
-  const revenueSparkline = revenueTrend.map((item) => item.revenue)
-  const progressSparkline = activityTrend.map((item) => item.activities || item.minutes)
-
+  const mix = data?.content_mix || []
+  const mixTotal = mix.reduce((sum, row) => sum + row.value, 0)
+  const colors = [
+    theme.palette.primary.main,
+    theme.palette.secondary.main,
+    '#DDA352',
+    '#6B98D7',
+    '#C77EA6',
+  ]
+  const trend = data?.revenue_trend || []
+  const metrics = [
+    [
+      'Registered users',
+      number(stats.users),
+      'Total learner accounts',
+      <PeopleRounded key="PeopleRounded" />,
+    ],
+    [
+      'Knowledge topics',
+      number(stats.courses),
+      `${number(stats.content)} words · ${number(stats.quizzes)} questions`,
+      <AutoStoriesRounded key="AutoStoriesRounded" />,
+    ],
+    [
+      'Paid revenue',
+      currency(stats.revenue),
+      'All time · paid orders only',
+      <PaymentsRounded key="PaymentsRounded" />,
+    ],
+    [
+      'Active subscriptions',
+      number(stats.active_subscriptions),
+      'Current, unexpired subscriptions',
+      <CardMembershipRounded key="CardMembershipRounded" />,
+    ],
+  ]
   return (
-    <Stack spacing={2.4}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' } }}
-      >
-        <Box>
-          <Typography variant="h3" sx={{ fontSize: { xs: 26, md: 34 }, mb: 0.7 }}>
-            Welcome back, Admin! <Box component="span">👋</Box>
-          </Typography>
-          <Typography color="text.secondary">
-            Here&apos;s what&apos;s happening with your platform today.
-          </Typography>
-        </Box>
-      </Stack>
-
-      <Grid container spacing={2.2}>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-          <StatCard
-            title="Registered Users"
-            value={loading ? '-' : number(stats.users)}
-            helper="Student accounts"
-            icon={<PeopleRounded />}
-            color="#8E5CE6"
-            iconBg="#F0E7FF"
-            sparkline={activitySparkline}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-          <StatCard
-            title="Learning Items"
-            value={loading ? '-' : number(stats.content)}
-            helper={`${number(stats.courses)} courses`}
-            icon={<MenuBookRounded />}
-            color="#5C9B81"
-            iconBg="#E4F4ED"
-            sparkline={progressMix.map((item) => item.value)}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-          <StatCard
-            title="Paid Revenue"
-            value={loading ? '-' : currency(stats.revenue)}
-            helper={`${number(stats.payment_orders)} payment orders`}
-            icon={<PaidRounded />}
-            color="#DC8E2E"
-            iconBg="#FCEEDC"
-            sparkline={revenueSparkline}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-          <StatCard
-            title="Completed Sessions"
-            value={loading ? '-' : number(stats.completed_sessions)}
-            helper={`${number(stats.quizzes)} quiz questions`}
-            icon={<CheckCircleRounded />}
-            color="#4B80D7"
-            iconBg="#E5EEFF"
-            sparkline={progressSparkline}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <ChartCard title="Daily Learning Activity" icon={<QueryStatsRounded />}>
-            <ResponsiveContainer width="100%" height={290}>
-              <AreaChart data={activityTrend} margin={{ left: -10, right: 14, top: 8, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#8E5CE6" stopOpacity={0.26} />
-                    <stop offset="100%" stopColor="#8E5CE6" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#E9E4F1" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#6D6580', fontSize: 12 }}
+    <>
+      <PageHeader
+        title="Overview"
+        subtitle="A clear view of your learners, content and operations."
+        action={{
+          label: 'Manage content',
+          onClick: undefined,
+          to: '/learning',
+        }}
+      />
+      {error ? (
+        <Card>
+          <EmptyState error={error} onRetry={reload} />
+        </Card>
+      ) : (
+        <>
+          <Grid container spacing={2}>
+            {metrics.map(([title, value, helper, icon]) => (
+              <Grid key={title} size={{ xs: 12, sm: 6, lg: 3 }}>
+                <StatCard
+                  title={title}
+                  value={value}
+                  helper={helper}
+                  icon={icon}
+                  loading={loading}
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6D6580', fontSize: 12 }} />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="minutes"
-                  name="Minutes"
-                  stroke="#8E5CE6"
-                  fill="url(#activityFill)"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#8E5CE6', strokeWidth: 2, stroke: '#FFFFFF' }}
-                  activeDot={{ r: 6 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <ChartCard title="Progress Mix" icon={<QueryStatsRounded />}>
-            <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={progressMix}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={68}
-                      outerRadius={104}
-                      paddingAngle={4}
-                    >
-                      {progressMix.map((entry, index) => (
-                        <Cell key={entry.name} fill={colors[index % colors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Stack spacing={2.1}>
-                  {progressMix.map((item, index) => (
-                    <Stack
-                      key={item.name}
-                      direction="row"
-                      spacing={1.4}
-                      sx={{ alignItems: 'center', justifyContent: 'space-between' }}
-                    >
-                      <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: '50%',
-                            bgcolor: colors[index % colors.length],
-                          }}
-                        />
-                        <Typography fontWeight={700} fontSize={13}>
-                          {item.name}
-                        </Typography>
-                      </Stack>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography fontWeight={800}>{item.percent}%</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {number(item.value)} users
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Grid>
-            </Grid>
-          </ChartCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <ChartCard
-            title="Revenue Trend"
-            icon={<PaidRounded />}
-            iconTone="#8E5CE6"
-          >
-            <ResponsiveContainer width="100%" height={235}>
-              <BarChart data={revenueTrend} margin={{ left: -6, right: 14, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#E9E4F1" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#6D6580', fontSize: 12 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#6D6580', fontSize: 12 }}
-                  tickFormatter={(value) => `₹${value}`}
-                />
-                <Tooltip formatter={(value) => currency(value)} />
-                <Bar dataKey="revenue" fill="#8E5CE6" radius={[6, 6, 0, 0]} barSize={38} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ p: 2.4 }}>
-              <Stack spacing={2}>
-                <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h6">Recent Users</Typography>
-                  <Button
-                    component={RouterLink}
-                    to="/users"
-                    size="small"
-                    sx={{ bgcolor: '#F1E8FF', color: 'primary.main', px: 1.5 }}
-                  >
-                    View all
-                  </Button>
-                </Stack>
-                <Chip
-                  label={`${number(stats.active_subscriptions || 0)} Active`}
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  sx={{ alignSelf: 'flex-start', fontWeight: 800 }}
-                />
-                {(data?.recent_users || []).slice(0, 4).map((user, index) => (
+            ))}
+          </Grid>
+          <Grid container spacing={2.5} sx={{ mt: 2.5 }}>
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
                   <Stack
-                    key={user.id}
                     direction="row"
-                    spacing={1.5}
+                    spacing={1}
                     sx={{
                       alignItems: 'center',
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      pb: 1.4,
+                      justifyContent: 'space-between',
+                      mb: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: index % 2 ? '#FBE8C6' : '#DDF4E8', color: index % 2 ? '#B36A18' : '#268658' }}>
-                      {initials(user.full_name)}
-                    </Avatar>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography fontWeight={800} noWrap>
-                        {user.full_name}
-                      </Typography>
-                      <Typography color="text.secondary" variant="caption" noWrap>
-                        {user.email || user.mobile_number}
+                    <Box>
+                      <Typography variant="h6">Revenue</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Daily paid revenue · last 14 days
                       </Typography>
                     </Box>
-                    <StatusChip value={user.subscription_status || 'active'} />
-                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 86, textAlign: 'right' }}>
-                      {formatDate(user.created_at)}
-                    </Typography>
+                    <Chip size="small" variant="outlined" label="INR" />
                   </Stack>
-                ))}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Stack>
+                  {loading ? (
+                    <Skeleton variant="rounded" height={240} sx={{ mt: 2 }} />
+                  ) : trend.some((row) => row.revenue > 0) ? (
+                    <Box sx={{ height: 260, mt: 3 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={trend}
+                          margin={{ top: 10, right: 8, left: -12, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient
+                              id="revenueFill"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor={theme.palette.primary.main}
+                                stopOpacity={0.25}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={theme.palette.primary.main}
+                                stopOpacity={0}
+                              />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid
+                            stroke={theme.palette.divider}
+                            vertical={false}
+                            strokeDasharray="3 5"
+                          />
+                          <XAxis
+                            dataKey="date"
+                            tickFormatter={(date) => formatDate(date, 'dd MMM')}
+                            tick={{
+                              fill: theme.palette.text.secondary,
+                              fontSize: 10,
+                            }}
+                            axisLine={false}
+                            tickLine={false}
+                            minTickGap={30}
+                          />
+                          <YAxis
+                            tick={{
+                              fill: theme.palette.text.secondary,
+                              fontSize: 10,
+                            }}
+                            tickFormatter={(value) => `₹${value}`}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <Tooltip
+                            labelFormatter={(date) => formatDate(date)}
+                            formatter={(value) => [currency(value), 'Revenue']}
+                            contentStyle={{
+                              background: theme.palette.background.paper,
+                              borderColor: theme.palette.divider,
+                              borderRadius: 10,
+                              color: theme.palette.text.primary,
+                            }}
+                          />
+                          <Area
+                            name="Revenue"
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke={theme.palette.primary.main}
+                            strokeWidth={2.5}
+                            fill="url(#revenueFill)"
+                            isAnimationActive={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  ) : (
+                    <EmptyState
+                      title="No revenue in this period"
+                      description="Paid orders from the last 14 days will appear here."
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6">Learning activity</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Recorded sessions by content type
+                  </Typography>
+                  {loading ? (
+                    <Skeleton variant="rounded" height={220} sx={{ mt: 3 }} />
+                  ) : mixTotal ? (
+                    <>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ alignItems: 'baseline', mt: 3 }}
+                      >
+                        <Typography variant="h4">{number(mixTotal)}</Typography>
+                        <Typography color="text.secondary" variant="body2">
+                          sessions
+                        </Typography>
+                      </Stack>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          height: 12,
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          gap: 0.5,
+                          my: 2.5,
+                        }}
+                      >
+                        {mix.map((row, index) => (
+                          <Box
+                            key={row.name}
+                            sx={{
+                              width: `${(row.value / mixTotal) * 100}%`,
+                              bgcolor: colors[index % colors.length],
+                            }}
+                          />
+                        ))}
+                      </Box>
+                      <Stack spacing={1.5}>
+                        {mix.map((row, index) => (
+                          <Stack
+                            key={row.name}
+                            direction="row"
+                            spacing={1.2}
+                            sx={{ alignItems: 'center' }}
+                          >
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: colors[index % colors.length],
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              sx={{ flex: 1, textTransform: 'capitalize' }}
+                            >
+                              {row.name}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {number(row.value)}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ width: 35, textAlign: 'right' }}
+                            >
+                              {Math.round((row.value / mixTotal) * 100)}%
+                            </Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', pt: 3 }}
+                      >
+                        {number(stats.completed_sessions)} completed sessions
+                        across all learners
+                      </Typography>
+                    </>
+                  ) : (
+                    <EmptyState
+                      title="Learning starts here"
+                      description="Activity will appear as learners start lessons."
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <Card>
+                <CardContent>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="h6">Recent learners</Typography>
+                    <Button
+                      component={Link}
+                      to="/users"
+                      endIcon={<ArrowForwardRounded />}
+                    >
+                      View all
+                    </Button>
+                  </Stack>
+                  {loading ? (
+                    <Skeleton height={180} />
+                  ) : data?.recent_users?.length ? (
+                    data.recent_users.slice(0, 4).map((user) => (
+                      <Stack
+                        key={user.id}
+                        component={Link}
+                        to={`/users/${user.id}`}
+                        direction="row"
+                        spacing={1.5}
+                        sx={{
+                          py: 1.7,
+                          borderTop: 1,
+                          borderColor: 'divider',
+                          alignItems: 'center',
+                          textDecoration: 'none',
+                          '&:hover': { bgcolor: 'action.hover' },
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Avatar
+                          sx={{
+                            bgcolor: 'action.selected',
+                            color: 'primary.main',
+                            fontSize: 14,
+                            width: 38,
+                            height: 38,
+                          }}
+                        >
+                          {user.full_name?.[0] || 'U'}
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap>
+                            {user.full_name}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            noWrap
+                            component="p"
+                          >
+                            {user.email || user.mobile_number}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          {formatDate(user.created_at, 'dd MMM')}
+                        </Typography>
+                        <ArrowForwardRounded
+                          sx={{ fontSize: 16, color: 'text.secondary' }}
+                        />
+                      </Stack>
+                    ))
+                  ) : (
+                    <EmptyState
+                      title="No learners yet"
+                      description="Accounts will appear when learners register in the app."
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card sx={{ height: '100%', bgcolor: 'action.selected' }}>
+                <CardContent>
+                  <AutoStoriesRounded
+                    sx={{ color: 'primary.main', fontSize: 36, mb: 2 }}
+                  />
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    Make room for discovery
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Keep the learning library fresh with new lessons, stories
+                    and practice activities.
+                  </Typography>
+                  <Button
+                    component={Link}
+                    to="/resources/stories"
+                    variant="contained"
+                    startIcon={<AddRounded />}
+                  >
+                    Manage stories
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </>
+      )}
+    </>
   )
-}
-
-function ChartCard({ title, icon, children, iconTone = '#161229' }) {
-  return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2.4 }}>
-        <Stack
-          direction="row"
-          spacing={1.2}
-          sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}
-        >
-          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
-            <Avatar sx={{ width: 28, height: 28, bgcolor: `${iconTone}14`, color: iconTone }}>
-              {icon}
-            </Avatar>
-            <Typography variant="h6">{title}</Typography>
-          </Stack>
-        </Stack>
-        {children}
-      </CardContent>
-    </Card>
-  )
-}
-
-function normalizedActivity(rows) {
-  return rows.map((row) => ({
-    ...row,
-    label: formatDate(row.date, 'dd MMM'),
-    minutes: Number(row.minutes || row.activities || 0),
-  }))
-}
-
-function normalizedRevenue(rows) {
-  return rows.map((row) => ({
-    ...row,
-    label: formatDate(row.date, 'dd MMM'),
-    revenue: Number(row.revenue || 0),
-  }))
-}
-
-function normalizedMix(rows) {
-  const source = rows
-  const total = source.reduce((sum, row) => sum + Number(row.value || 0), 0) || 1
-
-  return source.map((row) => ({
-    name: String(row.name || row.content_type || 'Unknown').replace(/_/g, ' '),
-    value: Number(row.value || 0),
-    percent: Math.round((Number(row.value || 0) / total) * 100),
-  }))
-}
-
-function initials(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return (parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')
 }

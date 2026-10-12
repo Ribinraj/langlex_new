@@ -1,3 +1,7 @@
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/features/learning/widgets/content_shimmers.dart';
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/api_exception.dart';
@@ -18,71 +22,129 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  late Future<NotificationInbox> _future;
+  final _scroll = ScrollController();
+  final _items = <AppNotification>[];
+  int _page = 0;
+  int _generation = 0;
+  bool _hasMore = true;
+  bool _loading = false;
+  bool _marking = false;
+  Object? _error;
 
   AppLocalizations get t => AppLocalizations(widget.homeLanguage);
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _scroll.addListener(_checkMore);
+    _load();
   }
 
-  Future<NotificationInbox> _load() {
-    return context.read<NotificationRepository>().fetchNotifications();
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
-  void _refresh() {
-    setState(() => _future = _load());
+  void _checkMore() {
+    if (_scroll.hasClients &&
+        _scroll.position.extentAfter < 250 &&
+        _error == null) {
+      _load();
+    }
+  }
+
+  Future<void> _load({bool refresh = false}) async {
+    if (!refresh && (_loading || !_hasMore)) return;
+    final generation = refresh ? ++_generation : _generation;
+    final next = refresh ? 1 : _page + 1;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final inbox = await context
+          .read<NotificationRepository>()
+          .fetchNotifications(page: next);
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        if (refresh) _items.clear();
+        final ids = _items.map((item) => item.id).toSet();
+        _items.addAll(inbox.notifications.where((item) => ids.add(item.id)));
+        _page = next;
+        _hasMore = inbox.hasMore && inbox.notifications.isNotEmpty;
+        _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _checkMore();
+      });
+    } catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _markRead(AppNotification notification) async {
     if (notification.isRead) return;
-    await context.read<NotificationRepository>().markRead(notification.id);
-    _refresh();
+    try {
+      await context.read<NotificationRepository>().markRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        final index = _items.indexWhere((item) => item.id == notification.id);
+        if (index >= 0) _items[index] = _items[index].copyWith(isRead: true);
+      });
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(context, t.retry);
+      }
+    }
   }
 
   Future<void> _markAllRead() async {
-    await context.read<NotificationRepository>().markAllRead();
-    _refresh();
+    if (_marking) return;
+    setState(() => _marking = true);
+    try {
+      await context.read<NotificationRepository>().markAllRead();
+      if (!mounted) return;
+      setState(() {
+        for (var i = 0; i < _items.length; i++) {
+          _items[i] = _items[i].copyWith(isRead: true);
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(context, t.retry);
+      }
+    } finally {
+      if (mounted) setState(() => _marking = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(
-        title: Text(t.notifications),
-        actions: [
-          TextButton(onPressed: _markAllRead, child: Text(t.markAllRead)),
-        ],
-      ),
-      body: FutureBuilder<NotificationInbox>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
 
-          if (snapshot.hasError) {
-            final message = snapshot.error is ApiException
-                ? (snapshot.error as ApiException).message
-                : t.couldNotLoadLearningContent;
-            return _StatusPanel(message: message, action: _refresh, t: t);
-          }
-
-          final notifications = snapshot.data?.notifications ?? const [];
-          if (notifications.isEmpty) {
-            return _StatusPanel(
-              message: t.noNotifications,
-              action: _refresh,
-              t: t,
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => _refresh(),
-            child: ListView.separated(
+      body: RefreshIndicator(
+        onRefresh: () => _load(refresh: true),
+        child: FlowScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          header: FlowPageHeader(
+            title: t.notifications,
+            footer: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _marking ? null : _markAllRead,
+                child: Text(t.markAllRead),
+              ),
+            ),
+          ),
+          slivers: [
+            SliverPadding(
               padding: ResponsiveUtils.pagePadding(
                 context,
                 mobileHorizontalPercent: 6,
@@ -91,19 +153,52 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 top: 12,
                 bottom: 34,
               ),
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return _NotificationTile(
-                  notification: notification,
-                  t: t,
-                  onTap: () => _markRead(notification),
-                );
-              },
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemCount: notifications.length,
+              sliver: SliverList.separated(
+                itemCount: _items.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  if (index < _items.length) {
+                    return _NotificationTile(
+                      notification: _items[index],
+                      t: t,
+                      onTap: () => _markRead(_items[index]),
+                    );
+                  }
+                  if (_loading) {
+                    return CatalogShimmer(
+                      kind: CatalogSkeleton.notifications,
+                      label: t.loading,
+                      itemCount: _items.isEmpty ? 5 : 2,
+                    );
+                  }
+                  if (_error != null) {
+                    return _StatusPanel(
+                      message: _error is ApiException
+                          ? (_error as ApiException).message
+                          : t.couldNotLoadLearningContent,
+                      action: () => _load(),
+                      t: t,
+                    );
+                  }
+                  if (_items.isEmpty) {
+                    return AppEmptyState(
+                      kind: EmptyStateKind.notifications,
+                      title: t.allCaughtUp,
+                      message: t.emptyNotificationsHint,
+                      actionLabel: Navigator.of(context).canPop()
+                          ? t.goBack
+                          : null,
+                      onAction: Navigator.of(context).canPop()
+                          ? () => Navigator.of(context).maybePop()
+                          : null,
+                    );
+                  }
+                  return const SizedBox(height: 16);
+                },
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -192,7 +287,6 @@ class _NotificationTile extends StatelessWidget {
                       weight: FontWeight.w700,
                       color: Appcolors.kdashboardMutedText,
                       overflow: TextOverflow.visible,
-                      maxLines: 3,
                     ),
                     const SizedBox(height: 10),
                     _StatusChip(

@@ -1,4 +1,8 @@
+import 'package:langlex_new_app/features/progress/progress_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
+import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
 import 'package:langlex_new_app/core/animations/app_animations.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
@@ -222,10 +226,10 @@ class LearningCourseCard extends StatelessWidget {
                                           overflow: TextOverflow.visible,
                                         ),
                                       ),
-                                      SizedBox(width: compact ? 8 : 14),
                                       LearningAccessPill(
                                         access: course.access,
                                         homeLanguage: homeLanguage,
+                                        leadingSpacing: compact ? 8 : 14,
                                       ),
                                     ],
                                   ),
@@ -237,16 +241,19 @@ class LearningCourseCard extends StatelessWidget {
                                     color: Appcolors.kdashboardMutedText,
                                     maxLines: 1,
                                   ),
+                                  TopicProgressBadge(
+                                    type: 'course',
+                                    contentKey: 'course-${course.id}',
+                                    language: course.language,
+                                  ),
                                   SizedBox(height: compact ? 14 : 20),
                                   Row(
                                     children: [
                                       Expanded(
                                         child: _CourseChipWrap(
-                                          wordsLabel: course.words.isEmpty
+                                          wordsLabel: course.wordCount == 0
                                               ? t.contentPending
-                                              : t.wordsCount(
-                                                  course.words.length,
-                                                ),
+                                              : t.wordsCount(course.wordCount),
                                           listenLabel: t.listen,
                                           wordsColor: resolvedAccent,
                                           listenColor: playfulAccent,
@@ -492,13 +499,22 @@ class LearningAccessPill extends StatelessWidget {
     super.key,
     required this.access,
     this.homeLanguage = 'English',
+    this.leadingSpacing = 0,
   });
 
   final LearningAccess access;
   final String homeLanguage;
+  final double leadingSpacing;
 
   @override
   Widget build(BuildContext context) {
+    if (access == LearningAccess.login) {
+      final authState = context.watch<AuthBloc?>()?.state;
+      if (authState is AuthAuthenticated || authState is AuthOtpVerified) {
+        return const SizedBox.shrink();
+      }
+    }
+
     final t = AppLocalizations(homeLanguage);
     final (label, icon, color, surface) = switch (access) {
       LearningAccess.free => (
@@ -522,6 +538,7 @@ class LearningAccessPill extends StatelessWidget {
     };
 
     return Container(
+      margin: EdgeInsetsDirectional.only(start: leadingSpacing),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: surface,

@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { pool, withTransaction } = require('../../infrastructure/database/db');
+const { buildExpiry } = require('../../shared/utils/subscriptionExpiry');
 
 const learningRepository = require('../../infrastructure/repositories/learningRepository');
 const paymentRepository = require('../../infrastructure/repositories/paymentRepository');
@@ -50,7 +52,8 @@ const createOrder = async ({ userId, planId }) => {
   };
 };
 
-const verifyPayment = async ({ userId, orderId, mockStatus = 'success' }) => {
+const verifyPayment = ({ userId, orderId, mockStatus = 'success' }) => withTransaction(async () => {
+  await pool.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[userId]);
   const order = await paymentRepository.findOrderById(orderId);
   if (!order || Number(order.user_id) !== Number(userId)) {
     throw new ApiError('Payment order not found', 404);
@@ -87,19 +90,7 @@ const verifyPayment = async ({ userId, orderId, mockStatus = 'success' }) => {
   });
 
   return { order: paidOrder, subscription };
-};
-
-const buildExpiry = (startedAt, period = '') => {
-  const match = period.match(/(\d+)/);
-  if (!match) return null;
-
-  const days = Number(match[1]);
-  if (!Number.isFinite(days) || days <= 0) return null;
-
-  const expiresAt = new Date(startedAt);
-  expiresAt.setDate(expiresAt.getDate() + days);
-  return expiresAt;
-};
+});
 
 module.exports = {
   listPlans,

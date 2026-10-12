@@ -89,46 +89,10 @@ export const resourceSchemas = {
     'show_plan',
     'title_audio',
   ],
-  plans: ['name', 'type', 'amount', 'permission', 'plan_timeperiod'],
+  plans: ['name', 'type', 'amount', 'plan_timeperiod'],
 }
 
-export const jsonColumns = new Set(['permission', 'audio_text_map', 'metadata', 'data'])
-
-export const fixedFieldOptions = {
-  language: ['English', 'Hindi', 'Kannada', 'Maithili'],
-  Language: ['English', 'Hindi', 'Kannada', 'Maithili'],
-  show_plan: [
-    { value: '0', label: 'Free' },
-    { value: '1', label: 'Requires Subscription' },
-  ],
-  type: [
-    { value: 'free', label: 'Free' },
-    { value: 'paid', label: 'Paid' },
-  ],
-  plan_timeperiod: ['7 days', '30 days', '90 days', '180 days', '365 days'],
-  permission: [
-    { value: '{"courses":"limited"}', label: 'Limited courses' },
-    { value: '{"courses":"all"}', label: 'All courses' },
-    { value: '{"courses":"all","stories":"all"}', label: 'All courses + stories' },
-    {
-      value: '{"courses":"all","stories":"all","quizzes":"all"}',
-      label: 'All courses + stories + quizzes',
-    },
-  ],
-  level: ['Beginner', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2'],
-  grade: ['Beginner', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2'],
-  difflvl: [
-    { value: 'easy', label: 'Easy' },
-    { value: 'medium', label: 'Medium' },
-    { value: 'hard', label: 'Hard' },
-  ],
-  QType: [
-    { value: 'mcq', label: 'Multiple Choice' },
-    { value: 'image_mcq', label: 'Image Multiple Choice' },
-    { value: 'audio_mcq', label: 'Audio Multiple Choice' },
-  ],
-  letter_type: ['Vowel', 'Consonant'],
-}
+export const jsonColumns = new Set(['permission', 'metadata', 'data'])
 
 export const relationshipFields = new Set([
   'p_cat',
@@ -140,12 +104,66 @@ export const relationshipFields = new Set([
 ])
 
 export const adminApi = {
+  setAccess: (id, payload) =>
+    apiClient.put(`/admin/users/${id}/access`, payload).then((r) => r.data),
+  grantSubscription: (id, payload) =>
+    apiClient
+      .post(`/admin/users/${id}/subscriptions`, payload)
+      .then((r) => r.data),
+  manageSubscription: (id, payload) =>
+    apiClient.put(`/admin/subscriptions/${id}`, payload).then((r) => r.data),
+  audit: (params) =>
+    apiClient.get('/admin/audit', { params }).then((r) => r.data),
+  media: (params) =>
+    apiClient.get('/admin/media', { params }).then((r) => r.data),
+  upload: (file) =>
+    apiClient
+      .post('/admin/media', file, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-File-Name': encodeURIComponent(file.name),
+        },
+        timeout: 120000,
+      })
+      .then((r) => r.data.item),
+  previewBulk: (resource, payload) =>
+    apiClient
+      .post(`/admin/bulk/${resource}/preview`, payload, { timeout: 120000 })
+      .then((r) => r.data),
+  applyBulk: (id) =>
+    apiClient
+      .post(`/admin/bulk/${id}/apply`, {}, { timeout: 120000 })
+      .then((r) => r.data),
+  formOptions: (resource, language) =>
+    apiClient
+      .get(`/admin/resource-form-options/${resource}`, { params: { language } })
+      .then((res) => res.data),
+  catalog: (resource, params) =>
+    apiClient
+      .get(`/admin/catalog/${resource}`, { params })
+      .then((res) => res.data),
+  groupItems: (resource, id, params) =>
+    apiClient
+      .get(`/admin/catalog/${resource}/${id}/items`, { params })
+      .then((res) => res.data),
+  updateGroup: (resource, id, payload) =>
+    apiClient
+      .put(`/admin/catalog/${resource}/${id}`, payload)
+      .then((res) => res.data),
+  learningProgress: (id, language) =>
+    apiClient
+      .get(`/admin/users/${id}/learning-progress`, { params: { language } })
+      .then((res) => res.data),
   overview: () => apiClient.get('/admin/overview').then((res) => res.data),
-  users: (params) => apiClient.get('/admin/users', { params }).then((res) => res.data),
+  users: (params) =>
+    apiClient.get('/admin/users', { params }).then((res) => res.data),
   user: (id) => apiClient.get(`/admin/users/${id}`).then((res) => res.data),
-  updateUser: (id, payload) => apiClient.put(`/admin/users/${id}`, payload).then((res) => res.data),
-  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`).then((res) => res.data),
-  payments: (params) => apiClient.get('/admin/payments', { params }).then((res) => res.data),
+  updateUser: (id, payload) =>
+    apiClient.put(`/admin/users/${id}`, payload).then((res) => res.data),
+  deleteUser: (id) =>
+    apiClient.delete(`/admin/users/${id}`).then((res) => res.data),
+  payments: (params) =>
+    apiClient.get('/admin/payments', { params }).then((res) => res.data),
   subscriptions: (params) =>
     apiClient.get('/admin/subscriptions', { params }).then((res) => res.data),
   notifications: (params) =>
@@ -153,18 +171,60 @@ export const adminApi = {
   sendNotification: (payload) =>
     apiClient.post('/admin/notifications', payload).then((res) => res.data),
   resource: (resource, params) =>
-    apiClient.get(`/admin/resources/${resource}`, { params }).then((res) => res.data),
+    apiClient
+      .get(`/admin/resources/${resource}`, { params })
+      .then((res) => res.data),
   createResource: (resource, payload) =>
-    apiClient.post(`/admin/resources/${resource}`, payload).then((res) => res.data),
+    apiClient
+      .post(`/admin/resources/${resource}`, payload)
+      .then((res) => res.data),
   updateResource: (resource, id, payload) =>
-    apiClient.put(`/admin/resources/${resource}/${id}`, payload).then((res) => res.data),
+    apiClient
+      .put(`/admin/resources/${resource}/${id}`, payload)
+      .then((res) => res.data),
   deleteResource: (resource, id) =>
-    apiClient.delete(`/admin/resources/${resource}/${id}`).then((res) => res.data),
+    apiClient
+      .delete(`/admin/resources/${resource}/${id}`)
+      .then((res) => res.data),
 }
 
 export function humanize(key) {
+  const labels = {
+    difflvl: 'Academic level',
+    QType: 'Question format',
+    ca: 'Correct answer',
+    o1: 'Alternative 1',
+    o2: 'Alternative 2',
+    o3: 'Alternative 3',
+    RAFeed: 'Correct-answer feedback',
+    WAFeed: 'Wrong-answer feedback',
+    show_plan: 'Access',
+    coursename: 'Activity name',
+    p_cat: 'Parent category',
+    ill_word: 'Example word',
+    ill_image: 'Example image',
+    plan_timeperiod: 'Subscription period',
+    q_audio: 'Question audio',
+    raf_audio: 'Correct-answer audio',
+    waf_audio: 'Wrong-answer audio',
+  }
+  if (labels[key]) return labels[key]
   return key
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
-    .replace('Ca', 'Correct Answer')
+}
+
+export const topicFields = {
+  courses: ['title', 'language', 'image', 'show_plan'],
+  alphabets: ['letter', 'coursename', 'language'],
+  quizzes: ['topic', 'Language', 'show_plan'],
+  phonics: ['coursename', 'language', 'title_image'],
+  stories: [
+    'title',
+    'language',
+    'grade',
+    'show_plan',
+    'title_image',
+    'title_audio',
+  ],
 }

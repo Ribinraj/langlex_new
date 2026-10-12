@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
@@ -14,10 +16,14 @@ class PhonicsPracticePage extends StatefulWidget {
     super.key,
     required this.phonics,
     required this.homeLanguage,
+    this.contentKey,
+    this.initialIndex,
   });
 
   final List<PhonicsItem> phonics;
   final String homeLanguage;
+  final String? contentKey;
+  final int? initialIndex;
 
   @override
   State<PhonicsPracticePage> createState() => _PhonicsPracticePageState();
@@ -26,22 +32,28 @@ class PhonicsPracticePage extends StatefulWidget {
 class _PhonicsPracticePageState extends State<PhonicsPracticePage> {
   late final PageController _pageController;
   int _selectedIndex = 0;
+  bool _interacted = false;
+  bool _audioReady = false;
+  int _audioSession = 0;
 
   String get _contentKey {
     final language = widget.phonics.isEmpty
         ? widget.homeLanguage
         : widget.phonics.first.language;
-    return 'phonics-$language';
+    return widget.contentKey ?? 'phonics-$language';
   }
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _audioReady = widget.initialIndex != null;
+    _selectedIndex = widget.phonics.isEmpty
+        ? 0
+        : (widget.initialIndex ?? 0).clamp(0, widget.phonics.length - 1);
+    _pageController = PageController(initialPage: _selectedIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _loadSavedProgress();
-      _recordProgress(0);
     });
   }
 
@@ -69,33 +81,51 @@ class _PhonicsPracticePageState extends State<PhonicsPracticePage> {
 
   Future<void> _loadSavedProgress() async {
     if (widget.phonics.isEmpty) return;
-    try {
-      final progress = await context
-          .read<LearningRepository>()
-          .getContentProgress(contentType: 'phonics', contentKey: _contentKey);
-      if (!mounted || progress.position <= 0) return;
-      final resumeIndex = progress.position.clamp(0, widget.phonics.length - 1);
-      setState(() => _selectedIndex = resumeIndex);
-      _pageController.jumpToPage(resumeIndex);
-      _recordProgress(resumeIndex);
-    } catch (_) {
-      // Resume should never block practice.
+    if (widget.initialIndex == null) {
+      try {
+        final progress = await context
+            .read<LearningRepository>()
+            .getContentProgress(
+              contentType: 'phonics',
+              contentKey: _contentKey,
+            );
+        if (!mounted || _interacted) return;
+        final resumeIndex = progress.position.clamp(
+          0,
+          widget.phonics.length - 1,
+        );
+        setState(() => _selectedIndex = resumeIndex);
+        _pageController.jumpToPage(resumeIndex);
+      } catch (_) {
+        // Practice remains available offline.
+      }
+    }
+    if (mounted && !_interacted) {
+      setState(() => _audioReady = true);
+      _recordProgress(_selectedIndex);
     }
   }
 
-  void _recordProgress(int index) {
+  Future<void> _recordProgress(int index) async {
     if (index < 0 || index >= widget.phonics.length) return;
-    context.read<LearningRepository>().recordContentItem(
-      contentType: 'phonics',
-      contentKey: _contentKey,
-      itemKey: _itemKey(widget.phonics[index], index),
-      position: index,
-      totalItems: widget.phonics.length,
-      status: index == widget.phonics.length - 1 ? 'completed' : 'in_progress',
-    );
+    try {
+      await context.read<LearningRepository>().recordContentItem(
+        contentType: 'phonics',
+        contentKey: _contentKey,
+        itemKey: _itemKey(widget.phonics[index], index),
+        position: index,
+        totalItems: widget.phonics.length,
+        status: index == widget.phonics.length - 1
+            ? 'completed'
+            : 'in_progress',
+      );
+    } catch (_) {
+      // A failed progress sync must not interrupt reading or audio playback.
+    }
   }
 
   Future<void> _restartPractice() async {
+    _interacted = true;
     try {
       await context.read<LearningRepository>().restartContentProgress(
         contentType: 'phonics',
@@ -105,7 +135,11 @@ class _PhonicsPracticePageState extends State<PhonicsPracticePage> {
       // Local restart still works if the network is unavailable.
     }
     if (!mounted) return;
-    setState(() => _selectedIndex = 0);
+    setState(() {
+      _selectedIndex = 0;
+      _audioReady = true;
+      _audioSession++;
+    });
     _pageController.jumpToPage(0);
     _recordProgress(0);
   }
@@ -117,64 +151,84 @@ class _PhonicsPracticePageState extends State<PhonicsPracticePage> {
 
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(
-        title: Text(t.phonics),
-        actions: [
-          IconButton(
-            onPressed: items.isEmpty ? null : _restartPractice,
-            tooltip: t.restartPractice,
-            icon: const Icon(Icons.replay_rounded),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: ResponsiveUtils.pagePadding(
-          context,
-          mobileHorizontalPercent: 6,
-          tabletHorizontal: 42,
-          desktopHorizontal: 56,
-          top: 10,
-          bottom: 36,
-        ),
+
+      body: SafeArea(
+        top: false,
         child: ResponsiveUtils.constrainWidth(
           context: context,
           maxWidth: 720,
           child: items.isEmpty
-              ? _EmptyPhonicsCard(t: t)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LearningSectionHeader(
-                      title: t.soundCardProgress(
-                        _selectedIndex + 1,
-                        items.length,
+              ? FlowScrollView(
+                  header: FlowPageHeader(
+                    title: t.phonics,
+                    actions: [
+                      IconButton(
+                        onPressed: items.isEmpty ? null : _restartPractice,
+                        tooltip: t.restartPractice,
+                        icon: const Icon(Icons.replay_rounded),
                       ),
-                    ),
-                    ResponsiveSizedBox.height(1.2),
-                    SizedBox(
-                      height: ResponsiveUtils.isMobile(context) ? 540 : 610,
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: _EmptyPhonicsCard(t: t),
+                )
+              : Column(
+                  children: [
+                    Expanded(
                       child: PageView.builder(
                         controller: _pageController,
                         itemCount: items.length,
                         onPageChanged: (index) {
-                          setState(() => _selectedIndex = index);
+                          _interacted = true;
+                          setState(() {
+                            _selectedIndex = index;
+                            _audioReady = true;
+                          });
                           _recordProgress(index);
                         },
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: _PhonicsCard(item: items[index], t: t),
-                          );
-                        },
+                        itemBuilder: (context, index) => FlowScrollView(
+                          header: FlowPageHeader(
+                            title: t.phonics,
+                            actions: [
+                              IconButton(
+                                onPressed: items.isEmpty
+                                    ? null
+                                    : _restartPractice,
+                                tooltip: t.restartPractice,
+                                icon: const Icon(Icons.replay_rounded),
+                              ),
+                            ],
+                            footer: LearningSectionHeader(
+                              title: t.soundCardProgress(
+                                _selectedIndex + 1,
+                                items.length,
+                              ),
+                            ),
+                          ),
+                          key: PageStorageKey(
+                            'phonics-card-${items[index].id}-$index',
+                          ),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          child: _PhonicsCard(
+                            key: ValueKey(
+                              'phonics-audio-$index-$_audioSession',
+                            ),
+                            item: items[index],
+                            t: t,
+                            active: _audioReady && index == _selectedIndex,
+                          ),
+                        ),
                       ),
                     ),
-                    ResponsiveSizedBox.height(1.4),
-                    _PhonicsControls(
-                      currentIndex: _selectedIndex,
-                      itemCount: items.length,
-                      t: t,
-                      onPrevious: () => _goTo(_selectedIndex - 1),
-                      onNext: () => _goTo(_selectedIndex + 1),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: _PhonicsControls(
+                        currentIndex: _selectedIndex,
+                        itemCount: items.length,
+                        t: t,
+                        onPrevious: () => _goTo(_selectedIndex - 1),
+                        onNext: () => _goTo(_selectedIndex + 1),
+                      ),
                     ),
                   ],
                 ),
@@ -185,10 +239,16 @@ class _PhonicsPracticePageState extends State<PhonicsPracticePage> {
 }
 
 class _PhonicsCard extends StatelessWidget {
-  const _PhonicsCard({required this.item, required this.t});
+  const _PhonicsCard({
+    super.key,
+    required this.item,
+    required this.t,
+    required this.active,
+  });
 
   final PhonicsItem item;
   final AppLocalizations t;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
@@ -212,65 +272,85 @@ class _PhonicsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Expanded(
+          AspectRatio(
+            aspectRatio: 1.4,
             child: LearningMediaImage(
               path: item.imagePath,
+              fit: BoxFit.contain,
               accent: accent,
               width: double.infinity,
               borderRadius: 24,
             ),
           ),
           const SizedBox(height: 18),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: ResponsiveText(
-              item.word,
-              fontSize: isMobile ? 50 : 66,
-              weight: FontWeight.w900,
-              color: Appcolors.ktextdark,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.visible,
-            ),
+          ResponsiveText(
+            item.word,
+            fontSize: isMobile ? 36 : 48,
+            weight: FontWeight.w900,
+            color: Appcolors.ktextdark,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.visible,
           ),
           const SizedBox(height: 10),
           ResponsiveText(
             item.sentence,
-            fontSize: isMobile ? 22 : 27,
+            fontSize: isMobile ? 20 : 24,
             weight: FontWeight.w900,
             color: Appcolors.kdashboardMutedText,
             textAlign: TextAlign.center,
             overflow: TextOverflow.visible,
-            maxLines: 3,
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _AudioAction(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final actions = [
+                _AudioAction(
                   label: t.word,
                   path: item.wordAudioPath,
+                  autoplayPath: item.wordAudioPath,
+                  active: active,
                   tooltip: t.playWord(item.word),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AudioAction(
+                _AudioAction(
                   label: t.sentence,
                   path: item.sentenceAudioPath,
+                  active: active,
                   tooltip: t.playSentence,
                 ),
-              ),
-            ],
+              ];
+              if (constraints.maxWidth < 360 ||
+                  MediaQuery.textScalerOf(context).scale(16) > 22) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    actions[0],
+                    const SizedBox(height: 10),
+                    actions[1],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: actions[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: actions[1]),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
           ResponsiveText(
-            '${item.language} • ${item.level} • ${item.subcategory}',
+            [
+              item.language,
+              item.level,
+              item.courseName,
+              item.subcategory,
+            ].where((value) => value.trim().isNotEmpty).toSet().join(' • '),
             fontSize: 12,
             weight: FontWeight.w800,
             color: Appcolors.kdashboardMutedText,
             textAlign: TextAlign.center,
             overflow: TextOverflow.visible,
-            maxLines: 2,
           ),
         ],
       ),
@@ -283,16 +363,21 @@ class _AudioAction extends StatelessWidget {
     required this.label,
     required this.path,
     required this.tooltip,
+    required this.active,
+    this.autoplayPath = '',
   });
 
   final String label;
   final String path;
   final String tooltip;
+  final bool active;
+  final String autoplayPath;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 58,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Appcolors.kauthSoftGreen,
         borderRadius: BorderRadius.circular(18),
@@ -303,7 +388,13 @@ class _AudioAction extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          LearningAudioButton(path: path, tooltip: tooltip, filled: true),
+          LearningAudioButton(
+            path: path,
+            tooltip: tooltip,
+            filled: true,
+            autoplayPath: autoplayPath,
+            active: active,
+          ),
           const SizedBox(width: 8),
           Flexible(
             child: ResponsiveText(
@@ -312,7 +403,6 @@ class _AudioAction extends StatelessWidget {
               weight: FontWeight.w900,
               color: Appcolors.kdashboardTeal,
               overflow: TextOverflow.visible,
-              maxLines: 1,
             ),
           ),
         ],
@@ -347,23 +437,15 @@ class _PhonicsControls extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(itemCount, (index) {
-              final selected = index == currentIndex;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: selected ? 22 : 8,
-                height: 8,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Appcolors.kdashboardTeal
-                      : Appcolors.kauthDivider,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              );
-            }),
+          child: Semantics(
+            label: t.soundCardProgress(currentIndex + 1, itemCount),
+            child: LinearProgressIndicator(
+              value: (currentIndex + 1) / itemCount,
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(99),
+              color: Appcolors.kdashboardTeal,
+              backgroundColor: Appcolors.kauthDivider,
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -379,27 +461,16 @@ class _PhonicsControls extends StatelessWidget {
 
 class _EmptyPhonicsCard extends StatelessWidget {
   const _EmptyPhonicsCard({required this.t});
-
   final AppLocalizations t;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Appcolors.kwhitecolor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Appcolors.kauthDivider),
-      ),
-      child: ResponsiveText(
-        t.noPhonics,
-        fontSize: 15,
-        weight: FontWeight.w800,
-        color: Appcolors.kdashboardMutedText,
-        textAlign: TextAlign.center,
-        overflow: TextOverflow.visible,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppEmptyState(
+    kind: EmptyStateKind.sounds,
+    title: t.nothingHereYet,
+    message: t.noPhonics,
+    actionLabel: Navigator.of(context).canPop() ? t.goBack : null,
+    onAction: Navigator.of(context).canPop()
+        ? () => Navigator.of(context).maybePop()
+        : null,
+  );
 }

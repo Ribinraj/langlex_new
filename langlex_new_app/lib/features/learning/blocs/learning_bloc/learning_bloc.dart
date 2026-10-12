@@ -8,10 +8,10 @@ class LearningBloc extends Bloc<LearningEvent, LearningState> {
   LearningBloc(this._repository) : super(const LearningInitial()) {
     on<LoadLearningCatalogEvent>(_onLoadCatalog);
     on<SaveLearningSetupEvent>(_onSaveLearningSetup);
-    on<RecordDailyProgressEvent>(_onRecordDailyProgress);
   }
 
   final LearningRepository _repository;
+  int _revision = 0;
 
   Future<void> _onLoadCatalog(
     LoadLearningCatalogEvent event,
@@ -19,14 +19,17 @@ class LearningBloc extends Bloc<LearningEvent, LearningState> {
   ) async {
     if (!event.forceRefresh && state is LearningLoaded) return;
 
+    final revision = ++_revision;
     emit(const LearningLoading());
     try {
       final catalog = await _repository.fetchCatalog();
-      emit(LearningLoaded(catalog));
+      if (revision == _revision) emit(LearningLoaded(catalog));
     } on ApiException catch (error) {
-      emit(LearningError(error.message));
+      if (revision == _revision) emit(LearningError(error.message));
     } catch (_) {
-      emit(const LearningError('Could not load learning content.'));
+      if (revision == _revision) {
+        emit(const LearningError('Could not load learning content.'));
+      }
     }
   }
 
@@ -35,28 +38,37 @@ class LearningBloc extends Bloc<LearningEvent, LearningState> {
     Emitter<LearningState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! LearningLoaded) return;
-
+    if (currentState is! LearningLoaded || currentState.setupSaving) return;
+    final revision = ++_revision;
+    bool saved = false;
     emit(LearningLoaded(currentState.catalog, setupSaving: true));
     try {
-      final setup = await _repository.saveLearningSetup(
+      await _repository.saveLearningSetup(
         event.setup,
         catalog: currentState.catalog,
       );
-      emit(
-        LearningLoaded(
-          currentState.catalog.copyWith(
-            setup: setup,
-            dailyGoal: currentState.catalog.dailyGoal.retarget(
-              setup.dailyGoalMinutes,
-            ),
-          ),
-          setupSaved: true,
-        ),
-      );
+      saved = true;
+      final catalog = await _repository.fetchCatalog();
+      if (revision == _revision) {
+        emit(LearningLoaded(catalog, setupSaved: true));
+      }
     } on ApiException catch (error) {
+      if (revision != _revision) return;
+      if (saved) {
+        emit(LearningError(error.message));
+        return;
+      }
       emit(LearningLoaded(currentState.catalog, setupError: error.message));
     } catch (_) {
+      if (revision != _revision) return;
+      if (saved) {
+        emit(
+          const LearningError(
+            'Language saved. Please retry loading your content.',
+          ),
+        );
+        return;
+      }
       emit(
         LearningLoaded(
           currentState.catalog,
@@ -66,22 +78,4 @@ class LearningBloc extends Bloc<LearningEvent, LearningState> {
     }
   }
 
-  Future<void> _onRecordDailyProgress(
-    RecordDailyProgressEvent event,
-    Emitter<LearningState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! LearningLoaded) return;
-
-    try {
-      final dailyGoal = await _repository.recordDailyProgress(
-        activityType: event.activityType,
-        activityKey: event.activityKey,
-        estimatedMinutes: event.estimatedMinutes,
-      );
-      emit(LearningLoaded(currentState.catalog.copyWith(dailyGoal: dailyGoal)));
-    } catch (_) {
-      // Daily progress should never interrupt a child while learning.
-    }
-  }
 }

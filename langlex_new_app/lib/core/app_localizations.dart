@@ -1,3 +1,5 @@
+import 'regional_translations.dart';
+
 class AppLocalizations {
   const AppLocalizations(this.language);
 
@@ -6,10 +8,222 @@ class AppLocalizations {
   bool get _isHindi => language.toLowerCase() == 'hindi';
   bool get _isKannada => language.toLowerCase() == 'kannada';
 
+  String get letsExplore =>
+      _text('Let’s explore!', 'चलो सीखें!', 'ಬನ್ನಿ ಕಲಿಯೋಣ!');
+
+  String get knowledge => _text('Knowledge', 'ज्ञान', 'ಜ್ಞಾನ');
+  String get alphabets => _text('Alphabets', 'अक्षर', 'ಅಕ್ಷರಗಳು');
+  String get lettersAndSounds =>
+      _text('Letters & sounds', 'अक्षर और ध्वनियाँ', 'ಅಕ್ಷರಗಳು ಮತ್ತು ಧ್ವನಿಗಳು');
+  String get searchLetters => _text(
+    'Search letters or words',
+    'अक्षर या शब्द खोजें',
+    'ಅಕ್ಷರಗಳು ಅಥವಾ ಪದಗಳನ್ನು ಹುಡುಕಿ',
+  );
+  String letterCount(int count) => _text(
+    '$count ${count == 1 ? 'letter' : 'letters'}',
+    '$count अक्षर',
+    '$count ಅಕ್ಷರಗಳು',
+  );
+  String exampleCount(int count) => _text(
+    '$count ${count == 1 ? 'example' : 'examples'}',
+    '$count उदाहरण',
+    '$count ಉದಾಹರಣೆಗಳು',
+  );
+  String get soundEffects =>
+      _text('App sound effects', 'ऐप की ध्वनियाँ', 'ಆ್ಯಪ್ ಧ್ವನಿ ಪರಿಣಾಮಗಳು');
+  String get soundEffectsHint => _text(
+    'Button taps, navigation and quiz effects. Lesson audio stays on.',
+    'बटन, नेविगेशन और क्विज़ की ध्वनियाँ। पाठ की आवाज़ चालू रहती है।',
+    'ಬಟನ್, ನ್ಯಾವಿಗೇಷನ್ ಮತ್ತು ರಸಪ್ರಶ್ನೆ ಧ್ವನಿಗಳು. ಪಾಠದ ಆಡಿಯೋ ಆನ್ ಆಗಿರುತ್ತದೆ.',
+  );
+  String get soundPreferenceSaveError => _text(
+    'Could not save your sound preference. Please try again.',
+    'ध्वनि की पसंद सहेजी नहीं जा सकी। फिर से कोशिश करें।',
+    'ಧ್ವನಿ ಆಯ್ಕೆಯನ್ನು ಉಳಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  );
+  String get sounds => _text('Sounds', 'ध्वनियाँ', 'ಧ್ವನಿಗಳು');
+  String get start => _text('Start', 'शुरू करें', 'ಆರಂಭಿಸಿ');
+  String soundCount(int count) =>
+      _text('$count sounds', '$count ध्वनियाँ', '$count ಧ್ವನಿಗಳು');
+  String get quizzesHeading => _text('Quizzes', 'क्विज़', 'ಪ್ರಶ್ನೋತ್ತರಗಳು');
+  String get readAndListen =>
+      _text('Read and listen', 'पढ़ें और सुनें', 'ಓದಿ ಮತ್ತು ಕೇಳಿ');
+  String get knowledgeSubtitle => _text(
+    'Letters, animals and more',
+    'अक्षर, जानवर और बहुत कुछ',
+    'ಅಕ್ಷರಗಳು, ಪ್ರಾಣಿಗಳು ಮತ್ತು ಇನ್ನಷ್ಟು',
+  );
+  String get playAndDiscover =>
+      _text('Play and discover', 'खेलें और जानें', 'ಆಡಿ ಮತ್ತು ಕಲಿಯಿರಿ');
+  String get chooseStory => _text(
+    'Choose a story to read and hear.',
+    'पढ़ने और सुनने के लिए कहानी चुनें।',
+    'ಓದಲು ಮತ್ತು ಕೇಳಲು ಕಥೆಯನ್ನು ಆರಿಸಿ.',
+  );
+  String get chooseTopic => _text(
+    'What shall we discover today?',
+    'आज हम क्या सीखें?',
+    'ಇಂದು ಏನು ಕಲಿಯೋಣ?',
+  );
+  String get exploreTopics =>
+      _text('Explore topics', 'विषय चुनें', 'ವಿಷಯಗಳನ್ನು ಆರಿಸಿ');
+  String get letterSounds => _text(
+    'Meet the letters and their sounds',
+    'अक्षर और उनकी ध्वनियाँ जानें',
+    'ಅಕ್ಷರಗಳು ಮತ್ತು ಅವುಗಳ ಧ್ವನಿಗಳನ್ನು ಕಲಿಯಿರಿ',
+  );
+  String get listenAndSay =>
+      _text('Listen and say it aloud', 'सुनें और बोलें', 'ಕೇಳಿ ಮತ್ತು ಹೇಳಿ');
+  String get searchStories =>
+      _text('Search stories', 'कहानियां खोजें', 'ಕಥೆಗಳನ್ನು ಹುಡುಕಿ');
+  String get searchTopics =>
+      _text('Search topics', 'विषय खोजें', 'ವಿಷಯಗಳನ್ನು ಹುಡುಕಿ');
+
+  String get search => _text('Search', 'खोजें', 'ಹುಡುಕಿ');
+  String get searchLearning => _text(
+    'Search learning content',
+    'सीखने की सामग्री खोजें',
+    'ಕಲಿಕೆಯ ವಿಷಯವನ್ನು ಹುಡುಕಿ',
+  );
+
   String get learn => _text('Learn', 'सीखें', 'ಕಲಿಯಿರಿ');
   String get library => _text('Library', 'लाइब्रेरी', 'ಲೈಬ್ರರಿ');
   String get practice => _text('Practice', 'अभ्यास', 'ಅಭ್ಯಾಸ');
   String get profile => _text('Profile', 'प्रोफाइल', 'ಪ್ರೊಫೈಲ್');
+  String get noResultsTitle => _text(
+    'No matches this time',
+    'इस बार कोई नतीजा नहीं मिला',
+    'ಈ ಬಾರಿ ಹೊಂದಾಣಿಕೆ ಸಿಗಲಿಲ್ಲ',
+  );
+  String get emptySearchHint => _text(
+    'Try another word, or clear your search to explore again.',
+    'दूसरा शब्द खोजें या फिर से देखने के लिए खोज हटाएँ।',
+    'ಬೇರೆ ಪದ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಮತ್ತೆ ಅನ್ವೇಷಿಸಲು ಹುಡುಕಾಟ ಅಳಿಸಿ.',
+  );
+  String get clearSearch => _text('Clear search', 'खोज हटाएँ', 'ಹುಡುಕಾಟ ಅಳಿಸಿ');
+  String get nothingHereYet => _text(
+    'Nothing here just yet',
+    'यहाँ अभी कुछ नहीं है',
+    'ಇಲ್ಲಿ ಇನ್ನೂ ಏನೂ ಇಲ್ಲ',
+  );
+  String get goBack => _text('Go back', 'वापस जाएँ', 'ಹಿಂದೆ ಹೋಗಿ');
+  String get allCaughtUp => _text(
+    'You’re all caught up!',
+    'आपने सब देख लिया!',
+    'ನೀವು ಎಲ್ಲವನ್ನೂ ನೋಡಿದ್ದೀರಿ!',
+  );
+  String get emptyNotificationsHint => _text(
+    'Your learning updates will appear here when they arrive.',
+    'सीखने से जुड़ी नई सूचनाएँ यहाँ दिखाई देंगी।',
+    'ನಿಮ್ಮ ಕಲಿಕೆಯ ಹೊಸ ಸೂಚನೆಗಳು ಬಂದಾಗ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.',
+  );
+  String get topicProgress =>
+      _text('Topic progress', 'विषय की प्रगति', 'ವಿಷಯದ ಪ್ರಗತಿ');
+  String get yourProgress =>
+      _text('Your progress', 'आपकी प्रगति', 'ನಿಮ್ಮ ಪ್ರಗತಿ');
+  String get viewTopicProgress => _text(
+    'View every topic',
+    'हर विषय की प्रगति देखें',
+    'ಪ್ರತಿ ವಿಷಯವನ್ನು ನೋಡಿ',
+  );
+  String get progressScopeHint => _text(
+    'Based on topics available with your current plan. New topics can change the percentage; your completed work stays saved.',
+    'आपके मौजूदा प्लान के उपलब्ध विषयों पर आधारित। नए विषयों से प्रतिशत बदल सकता है; पूरा किया काम सुरक्षित रहता है।',
+    'ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಯೋಜನೆಯಲ್ಲಿ ಲಭ್ಯವಿರುವ ವಿಷಯಗಳ ಆಧಾರದಲ್ಲಿ. ಹೊಸ ವಿಷಯಗಳಿಂದ ಶೇಕಡಾವಾರು ಬದಲಾಗಬಹುದು; ಪೂರ್ಣಗೊಳಿಸಿದ ಕೆಲಸ ಉಳಿಯುತ್ತದೆ.',
+  );
+  String get progressUnavailable => _text(
+    'Progress could not be updated. Please try again.',
+    'प्रगति अपडेट नहीं हो सकी। फिर कोशिश करें।',
+    'ಪ್ರಗತಿಯನ್ನು ನವೀಕರಿಸಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  );
+  String get progressNeedsAttention => _text(
+    'Some saved activity needs attention or renewed access. Your unsynced work is kept on this device.',
+    'कुछ गतिविधियों के लिए दोबारा पहुँच चाहिए। बिना सिंक हुआ काम इस डिवाइस पर सुरक्षित है।',
+    'ಕೆಲವು ಚಟುವಟಿಕೆಗಳಿಗೆ ಗಮನ ಅಥವಾ ಪ್ರವೇಶ ನವೀಕರಣ ಬೇಕು. ಸಿಂಕ್ ಆಗದ ಕೆಲಸ ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿದಿದೆ.',
+  );
+  String get syncProgress =>
+      _text('Sync progress', 'प्रगति सिंक करें', 'ಪ್ರಗತಿ ಸಿಂಕ್ ಮಾಡಿ');
+  String get progressPageSubtitle => _text(
+    'Every little step counts',
+    'हर छोटा कदम मायने रखता है',
+    'ಪ್ರತಿಯೊಂದು ಸಣ್ಣ ಹೆಜ್ಜೆಯೂ ಮುಖ್ಯ',
+  );
+  String get progressMethodTitle => _text(
+    'How progress is counted',
+    'प्रगति कैसे गिनी जाती है',
+    'ಪ್ರಗತಿಯನ್ನು ಹೇಗೆ ಲೆಕ್ಕಿಸಲಾಗುತ್ತದೆ',
+  );
+  String get progressMethodHint => _text(
+    'Steps count words explored, letter examples practiced, quiz questions answered and story passages read. Replay keeps your earned progress. Quiz completion and correct answers are shown separately.',
+    'कदमों में देखे गए शब्द, अक्षर अभ्यास, उत्तर दिए प्रश्न और पढ़े कहानी अंश गिने जाते हैं। दोबारा अभ्यास से प्रगति नहीं मिटती। प्रश्नों की पूर्णता और सही उत्तर अलग दिखते हैं।',
+    'ಹೆಜ್ಜೆಗಳಲ್ಲಿ ನೋಡಿದ ಪದಗಳು, ಅಕ್ಷರ ಅಭ್ಯಾಸ, ಉತ್ತರಿಸಿದ ಪ್ರಶ್ನೆಗಳು ಮತ್ತು ಓದಿದ ಕಥೆಯ ಭಾಗಗಳು ಸೇರುತ್ತವೆ. ಮರುಅಭ್ಯಾಸದಿಂದ ಪ್ರಗತಿ ಅಳಿಯುವುದಿಲ್ಲ. ಪೂರ್ಣತೆ ಮತ್ತು ಸರಿಯಾದ ಉತ್ತರಗಳು ಪ್ರತ್ಯೇಕವಾಗಿವೆ.',
+  );
+  String get progressFilter =>
+      _text('Show topics', 'विषय दिखाएँ', 'ವಿಷಯಗಳನ್ನು ತೋರಿಸಿ');
+  String get notStarted => _text('Not started', 'शुरू नहीं किया', 'ಆರಂಭಿಸಿಲ್ಲ');
+  String get inProgress =>
+      _text('In progress', 'अभ्यास जारी है', 'ಅಭ್ಯಾಸ ನಡೆಯುತ್ತಿದೆ');
+  String get completedLabel => _text('Completed', 'पूरा हुआ', 'ಪೂರ್ಣಗೊಂಡಿದೆ');
+  String get premiumLocked =>
+      _text('Premium · locked', 'प्रीमियम · लॉक', 'ಪ್ರೀಮಿಯಂ · ಲಾಕ್');
+  String get progressEmptyHint => _text(
+    'No topics in this view. Try another filter or switch your learning language from Home.',
+    'इस सूची में कोई विषय नहीं है। दूसरा फ़िल्टर चुनें या होम से सीखने की भाषा बदलें।',
+    'ಈ ಪಟ್ಟಿಯಲ್ಲಿ ವಿಷಯಗಳಿಲ್ಲ. ಬೇರೆ ಫಿಲ್ಟರ್ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಮುಖಪುಟದಿಂದ ಕಲಿಕೆಯ ಭಾಷೆ ಬದಲಿಸಿ.',
+  );
+  String get markPracticed => _text(
+    'Mark as practiced',
+    'अभ्यास पूरा करें',
+    'ಅಭ್ಯಾಸ ಮಾಡಿದೆ ಎಂದು ಗುರುತಿಸಿ',
+  );
+  String get progressSavedOnDevice => _text(
+    'Saved on this device. Progress will sync when connected.',
+    'इस डिवाइस पर सुरक्षित है। कनेक्शन मिलने पर प्रगति सिंक होगी।',
+    'ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ. ಸಂಪರ್ಕ ಬಂದಾಗ ಪ್ರಗತಿ ಸಿಂಕ್ ಆಗುತ್ತದೆ.',
+  );
+  String progressPercent(int n) =>
+      _text('$n% completed', '$n% पूरा', '$n% ಪೂರ್ಣಗೊಂಡಿದೆ');
+  String stepsCompleted(int done, int total) => _text(
+    '$done of $total steps completed',
+    '$total में से $done कदम पूरे',
+    '$total ರಲ್ಲಿ $done ಹೆಜ್ಜೆಗಳು ಪೂರ್ಣಗೊಂಡಿವೆ',
+  );
+  String topicsCompleted(int done, int total) => _text(
+    '$done of $total topics finished',
+    '$total में से $done विषय पूरे',
+    '$total ರಲ್ಲಿ $done ವಿಷಯಗಳು ಪೂರ್ಣಗೊಂಡಿವೆ',
+  );
+  String lockedTopicCount(int n) => _text(
+    '$n Premium topics locked',
+    '$n प्रीमियम विषय लॉक',
+    '$n ಪ್ರೀಮಿಯಂ ವಿಷಯಗಳು ಲಾಕ್',
+  );
+  String topicCompletion(int done, int total) => _text(
+    '$done / $total completed',
+    '$done / $total पूरे',
+    '$done / $total ಪೂರ್ಣಗೊಂಡಿವೆ',
+  );
+  String savedTopicProgress(int done, int total) => _text(
+    '$done / $total saved · Premium',
+    '$done / $total सुरक्षित · प्रीमियम',
+    '$done / $total ಉಳಿಸಲಾಗಿದೆ · ಪ್ರೀಮಿಯಂ',
+  );
+  String progressPending(int n) => _text(
+    '$n activities saved on this device, waiting to sync. Totals show confirmed progress.',
+    '$n गतिविधियाँ इस डिवाइस पर सुरक्षित हैं, सिंक बाकी है। कुल में पुष्टि की गई प्रगति है।',
+    '$n ಚಟುವಟಿಕೆಗಳು ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿದಿವೆ, ಸಿಂಕ್ ಬಾಕಿಯಿದೆ. ಒಟ್ಟು ದೃಢೀಕೃತ ಪ್ರಗತಿಯನ್ನು ತೋರಿಸುತ್ತದೆ.',
+  );
+  String savedPremiumProgress(int n) => _text(
+    '$n completed Premium steps are saved. They return to your total when access is restored.',
+    '$n पूरे प्रीमियम कदम सुरक्षित हैं। पहुँच वापस मिलने पर वे कुल में जुड़ेंगे।',
+    '$n ಪೂರ್ಣಗೊಂಡ ಪ್ರೀಮಿಯಂ ಹೆಜ್ಜೆಗಳು ಉಳಿದಿವೆ. ಪ್ರವೇಶ ಮರಳಿದಾಗ ಅವು ಒಟ್ಟಿಗೆ ಸೇರುತ್ತವೆ.',
+  );
+  String quizCorrectCount(int correct, int answered) => _text(
+    '$correct of $answered answered questions correct at least once',
+    '$answered में से $correct प्रश्नों का कम से कम एक बार सही उत्तर',
+    '$answered ರಲ್ಲಿ $correct ಪ್ರಶ್ನೆಗಳಿಗೆ ಕನಿಷ್ಠ ಒಮ್ಮೆ ಸರಿಯಾದ ಉತ್ತರ',
+  );
   String get retry => _text('Retry', 'फिर कोशिश करें', 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ');
   String get all => _text('All', 'सभी', 'ಎಲ್ಲಾ');
   String get loading => _text('Loading', 'लोड हो रहा है', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ');
@@ -73,7 +287,6 @@ class AppLocalizations {
   String get home => _text('Home', 'घर', 'ಮನೆ');
   String get learning => _text('Learning', 'सीखना', 'ಕಲಿಕೆ');
   String get level => _text('Level', 'लेवल', 'ಹಂತ');
-  String get goal => _text('Goal', 'लक्ष्य', 'ಗುರಿ');
   String get plan => _text('Plan', 'प्लान', 'ಯೋಜನೆ');
   String get student => _text('Student', 'विद्यार्थी', 'ವಿದ್ಯಾರ್ಥಿ');
   String get langLexLearner =>
@@ -120,9 +333,9 @@ class AppLocalizations {
   String get setUpLearning =>
       _text('Set up learning', 'लर्निंग सेट करें', 'ಕಲಿಕೆ ಸೆಟಪ್ ಮಾಡಿ');
   String get setUpLearningSubtitle => _text(
-    'Choose student level, language, and daily goal',
-    'विद्यार्थी का लेवल, भाषा और दैनिक लक्ष्य चुनें',
-    'ವಿದ್ಯಾರ್ಥಿಯ ಹಂತ, ಭಾಷೆ ಮತ್ತು ದೈನಂದಿನ ಗುರಿ ಆಯ್ಕೆಮಾಡಿ',
+    'Choose student level and language',
+    'विद्यार्थी का लेवल और भाषा चुनें',
+    'ವಿದ್ಯಾರ್ಥಿಯ ಹಂತ ಮತ್ತು ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ',
   );
   String get learningFilters =>
       _text('Learning filters', 'लर्निंग फिल्टर', 'ಕಲಿಕೆ ಫಿಲ್ಟರ್‌ಗಳು');
@@ -139,21 +352,6 @@ class AppLocalizations {
   String get quickActions =>
       _text('Quick actions', 'त्वरित काम', 'ತ್ವರಿತ ಕ್ರಿಯೆಗಳು');
   String get dailyWords => _text('Daily words', 'आज के शब्द', 'ದಿನದ ಪದಗಳು');
-  String get todayGoal => _text("Today's goal", 'आज का लक्ष्य', 'ಇಂದಿನ ಗುರಿ');
-  String get goalComplete =>
-      _text('Goal complete', 'लक्ष्य पूरा', 'ಗುರಿ ಪೂರ್ಣವಾಗಿದೆ');
-  String dailyGoalMinutesLabel(int minutes) => _text(
-    '$minutes min daily target',
-    '$minutes मिनट दैनिक लक्ष्य',
-    '$minutes ನಿಮಿಷ ದಿನದ ಗುರಿ',
-  );
-  String wordsProgress(int done, int total) =>
-      _text('$done/$total words', '$done/$total शब्द', '$done/$total ಪದಗಳು');
-  String quizzesProgress(int done, int total) => _text(
-    '$done/$total quizzes',
-    '$done/$total क्विज़',
-    '$done/$total ಪ್ರಶ್ನೋತ್ತರಗಳು',
-  );
   String wordsForLevel(int count, String level) => _text(
     '$count words for $level',
     '$level के लिए $count शब्द',
@@ -213,17 +411,11 @@ class AppLocalizations {
   String get studentProfile =>
       _text('Student profile', 'विद्यार्थी प्रोफाइल', 'ವಿದ್ಯಾರ್ಥಿ ಪ್ರೊಫೈಲ್');
   String get childName => _text('Child name', 'बच्चे का नाम', 'ಮಗುವಿನ ಹೆಸರು');
-  String get ageGroup => _text('Age group', 'आयु समूह', 'ವಯೋಮಿತಿ');
   String get languagesAndLevel =>
       _text('Languages and level', 'भाषाएं और लेवल', 'ಭಾಷೆಗಳು ಮತ್ತು ಹಂತ');
   String get homeLanguage => _text('Home language', 'घर की भाषा', 'ಮನೆಯ ಭಾಷೆ');
   String get learningLanguage =>
       _text('Learning language', 'सीखने की भाषा', 'ಕಲಿಕೆಯ ಭಾಷೆ');
-  String dailyGoal(int minutes) => _text(
-    'Daily goal: $minutes min',
-    'दैनिक लक्ष्य: $minutes मिनट',
-    'ದಿನದ ಗುರಿ: $minutes ನಿಮಿಷ',
-  );
   String get requiredSetupIntro => _text(
     'Set this once so lessons match the student from the first screen.',
     'इसे एक बार सेट करें ताकि पहले स्क्रीन से पाठ विद्यार्थी के अनुसार दिखें।',
@@ -440,7 +632,35 @@ class AppLocalizations {
     '$category ಅಭ್ಯಾಸಕ್ಕೆ $count ಪದಗಳು.',
   );
 
+  String get languageLabel => _text('Language', 'भाषा', 'ಭಾಷೆ');
+  String get chooseThreeLanguages => _text(
+    'Choose your 3 languages',
+    'अपनी 3 भाषाएँ चुनें',
+    'ನಿಮ್ಮ 3 ಭಾಷೆಗಳನ್ನು ಆರಿಸಿ',
+  );
+  String get threeLanguagesDescription => _text(
+    'Pick three languages for your learning journey. The first one you pick will be your starting language.',
+    'सीखने के लिए तीन भाषाएँ चुनें। पहली चुनी गई भाषा से शुरुआत होगी।',
+    'ಕಲಿಯಲು ಮೂರು ಭಾಷೆಗಳನ್ನು ಆರಿಸಿ. ಮೊದಲು ಆರಿಸಿದ ಭಾಷೆಯಿಂದ ಪ್ರಾರಂಭಿಸಿ.',
+  );
+  String get languagesPermanentNote => _text(
+    'These three languages stay with your account. Switch between them anytime from Home.',
+    'ये तीन भाषाएँ आपके खाते में रहेंगी। होम से कभी भी इनके बीच बदलें।',
+    'ಈ ಮೂರು ಭಾಷೆಗಳು ನಿಮ್ಮ ಖಾತೆಯಲ್ಲಿ ಉಳಿಯುತ್ತವೆ. ಮುಖಪುಟದಿಂದ ಯಾವಾಗ ಬೇಕಾದರೂ ಬದಲಿಸಿ.',
+  );
+  String get languageAppliesToEverything => _text(
+    'Your app and learning content use the same language.',
+    'ऐप और सीखने की सामग्री की भाषा एक ही है।',
+    'ಅಪ್ಲಿಕೇಶನ್ ಮತ್ತು ಕಲಿಕೆಯ ವಿಷಯ ಒಂದೇ ಭಾಷೆಯನ್ನು ಬಳಸುತ್ತವೆ.',
+  );
+  String get startLearning =>
+      _text('Start learning', 'सीखना शुरू करें', 'ಕಲಿಯಲು ಪ್ರಾರಂಭಿಸಿ');
+
   String _text(String english, String hindi, String kannada) {
+    if (language.toLowerCase() == 'maithili' ||
+        language.toLowerCase() == 'assamese') {
+      return regionalText(english, language) ?? english;
+    }
     if (_isHindi) return hindi;
     if (_isKannada) return kannada;
     return english;

@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/core/app_toast.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -88,9 +89,7 @@ class _LoginPageState extends State<LoginPage>
         } else if (state is AuthAuthenticated) {
           context.go(AppRoutes.dashboard);
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(state.message)));
+          AppToast.error(context, state.message);
         }
       },
       builder: (context, state) {
@@ -164,6 +163,21 @@ class _LoginPageState extends State<LoginPage>
                                     SizedBox(height: topGap),
                                     const _LoginHeading(),
                                     const SizedBox(height: 28),
+                                    if (state is AuthSessionEnded)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: Text(
+                                          state.message,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.error,
+                                          ),
+                                        ),
+                                      ),
                                     _LoginFormCard(
                                       controller: _mobileNumberController,
                                       isLoading: isLoading,

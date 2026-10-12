@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -7,8 +9,6 @@ import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
-import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
-import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_event.dart';
 import 'package:langlex_new_app/features/learning/learning_repo.dart';
 import 'package:langlex_new_app/features/learning/models/learning_models.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
@@ -30,12 +30,13 @@ class QuizPracticePage extends StatefulWidget {
 }
 
 class _QuizPracticePageState extends State<QuizPracticePage> {
-  final Set<String> _dailyRecordedQuestionKeys = {};
   int _questionIndex = 0;
   int _celebrationTrigger = 0;
   int _score = 0;
   String? _selectedAnswer;
   bool _isComplete = false;
+  int _interactionRevision = 0;
+  final Set<String> _answeredQuestionKeys = {};
 
   String get _contentKey =>
       widget.contentKey ?? 'quiz-${widget.homeLanguage.toLowerCase()}';
@@ -57,31 +58,34 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
   void _recordQuizProgress(QuizQuestion question, String option) {
     final questionKey = _questionKey(question);
 
-    if (_dailyRecordedQuestionKeys.add(questionKey)) {
-      context.read<LearningBloc>().add(
-        RecordDailyProgressEvent(
-          activityType: 'quiz',
-          activityKey: questionKey,
-          estimatedMinutes: 2,
-        ),
-      );
-    }
-
-    context.read<LearningRepository>().recordContentItem(
-      contentType: 'quiz',
-      contentKey: _contentKey,
-      itemKey: questionKey,
-      position: _questionIndex,
-      totalItems: widget.questions.length,
-      status: _questionIndex == widget.questions.length - 1
-          ? 'completed'
-          : 'in_progress',
-      isCorrect: option == question.correctAnswer,
-    );
+    context
+        .read<LearningRepository>()
+        .recordContentItem(
+          contentType: 'quiz',
+          contentKey: _contentKey,
+          itemKey: questionKey,
+          position: _questionIndex,
+          totalItems: widget.questions.length,
+          status:
+              widget.questions.every(
+                (item) => _answeredQuestionKeys.contains(_questionKey(item)),
+              )
+              ? 'completed'
+              : 'in_progress',
+          isCorrect: option == question.correctAnswer,
+          answer: option,
+        )
+        .then<void>((_) {}, onError: (Object _) {});
   }
 
   void _answerQuestion(QuizQuestion question, String option) {
-    if (_selectedAnswer != null) return;
+    if (_selectedAnswer != null ||
+        _isComplete ||
+        !identical(question, widget.questions[_questionIndex])) {
+      return;
+    }
+    _interactionRevision++;
+    _answeredQuestionKeys.add(_questionKey(question));
 
     LearningAssetSound.playQuizOptionSelect();
     _recordQuizProgress(question, option);
@@ -105,11 +109,12 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
 
   Future<void> _loadSavedProgress() async {
     if (widget.questions.isEmpty) return;
+    final revision = _interactionRevision;
     try {
       final progress = await context
           .read<LearningRepository>()
           .getContentProgress(contentType: 'quiz', contentKey: _contentKey);
-      if (!mounted) return;
+      if (!mounted || revision != _interactionRevision) return;
 
       if (progress.restartSession) {
         setState(() {
@@ -125,6 +130,7 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
             !progress.completedItemKeys.contains(_questionKey(question)),
       );
       setState(() {
+        _answeredQuestionKeys.addAll(progress.completedItemKeys);
         _score = progress.score;
         if (firstUnanswered == -1 && widget.questions.isNotEmpty) {
           _isComplete = true;
@@ -137,31 +143,45 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
     }
   }
 
-  void _goNext() {
-    final isLastQuestion = _questionIndex == widget.questions.length - 1;
+  void _goNext(QuizQuestion question) {
+    if (_selectedAnswer == null ||
+        _isComplete ||
+        !identical(question, widget.questions[_questionIndex])) {
+      return;
+    }
+    _interactionRevision++;
+    var nextIndex = _questionIndex + 1;
+    while (nextIndex < widget.questions.length &&
+        _answeredQuestionKeys.contains(
+          _questionKey(widget.questions[nextIndex]),
+        )) {
+      nextIndex++;
+    }
+    final isLastQuestion = nextIndex == widget.questions.length;
     LearningAssetSound.play(
       isLastQuestion
           ? KidsLearningAssets.quizFinishSound
           : KidsLearningAssets.quizNextSound,
     );
     setState(() {
+      _selectedAnswer = null;
       if (isLastQuestion) {
         _isComplete = true;
         return;
       }
-      _selectedAnswer = null;
-      _questionIndex++;
+      _questionIndex = nextIndex;
     });
   }
 
   void _restartQuiz() {
+    _interactionRevision++;
+    _answeredQuestionKeys.clear();
     LearningAssetSound.playTap();
-    context.read<LearningRepository>().restartContentProgress(
-      contentType: 'quiz',
-      contentKey: _contentKey,
-    );
+    context
+        .read<LearningRepository>()
+        .restartContentProgress(contentType: 'quiz', contentKey: _contentKey)
+        .then<void>((_) {}, onError: (Object _) {});
     setState(() {
-      _dailyRecordedQuestionKeys.clear();
       _questionIndex = 0;
       _celebrationTrigger = 0;
       _score = 0;
@@ -189,19 +209,18 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
                   desktopHorizontal: 56,
                   bottom: 36,
                 ),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    ResponsiveText(
-                      t.noQuizQuestions,
-                      fontSize: 15,
-                      weight: FontWeight.w800,
-                      color: Appcolors.kdashboardMutedText,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.visible,
-                    ),
-                    const Spacer(),
-                  ],
+                child: SingleChildScrollView(
+                  child: AppEmptyState(
+                    kind: EmptyStateKind.quizzes,
+                    title: t.nothingHereYet,
+                    message: t.noQuizQuestions,
+                    actionLabel: Navigator.of(context).canPop()
+                        ? t.goBack
+                        : null,
+                    onAction: Navigator.of(context).canPop()
+                        ? () => Navigator.of(context).maybePop()
+                        : null,
+                  ),
                 ),
               ),
             ),
@@ -265,7 +284,7 @@ class _QuizPracticePageState extends State<QuizPracticePage> {
                         isCorrect: isCorrect,
                         selectedAnswer: _selectedAnswer,
                         onAnswer: (option) => _answerQuestion(question, option),
-                        onNext: _goNext,
+                        onNext: () => _goNext(question),
                         nextLabel: nextLabel,
                         feedbackMessage: isCorrect
                             ? question.feedback
@@ -501,33 +520,6 @@ class _QuizCloudBandPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _QuizCloudBandPainter oldDelegate) => false;
-}
-
-class _QuizSvgAsset extends StatelessWidget {
-  const _QuizSvgAsset({
-    required this.assetPath,
-    required this.width,
-    required this.height,
-    this.opacity = 1,
-  });
-
-  final String assetPath;
-  final double width;
-  final double height;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
-      child: SvgPicture.asset(
-        assetPath,
-        width: width,
-        height: height,
-        fit: BoxFit.contain,
-      ),
-    );
-  }
 }
 
 class _QuizSparkle extends StatelessWidget {
@@ -805,15 +797,31 @@ class _QuizPromptPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _QuizSvgAsset(
-                      assetPath: 'assets/icons/speaker.svg',
-                      width: 44,
-                      height: 44,
-                      opacity: 0.96,
+                    LearningAudioButton(
+                      path: question.questionAudioPath.isNotEmpty
+                          ? question.questionAudioPath
+                          : question.audioPath,
+                      tooltip: 'Play question',
                     ),
                   ],
                 ),
               ),
+              if (question.imagePath.isNotEmpty) ...[
+                LearningMediaImage(
+                  path: question.imagePath,
+                  accent: Appcolors.kprimarycolor,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (question.audioPath.isNotEmpty &&
+                  question.questionAudioPath.isNotEmpty)
+                LearningAudioButton(
+                  path: question.audioPath,
+                  tooltip: 'Listen to the sound',
+                ),
               for (var index = 0; index < question.options.length; index++) ...[
                 StaggeredEntrance(
                   index: index + 2,
@@ -943,8 +951,9 @@ class _QuizCompleteView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(title: Text(t.quizComplete)),
-      body: SingleChildScrollView(
+
+      body: FlowScrollView(
+        header: FlowPageHeader(title: t.quizComplete),
         padding: ResponsiveUtils.pagePadding(
           context,
           mobileHorizontalPercent: 6,
@@ -1180,16 +1189,28 @@ class _QuizOptionTile extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: ResponsiveText(
-                    option,
+                    RegExp(
+                          r'\.(mp3|wav|ogg|m4a)(\?.*)?$',
+                          caseSensitive: false,
+                        ).hasMatch(option)
+                        ? 'Audio option $letter'
+                        : option,
                     fontSize: 16,
                     minScale: 0.80,
                     weight: FontWeight.w900,
                     color: Appcolors.ktextdark,
                     overflow: TextOverflow.visible,
-                    maxLines: 2,
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (RegExp(
+                  r'\.(mp3|wav|ogg|m4a)(\?.*)?$',
+                  caseSensitive: false,
+                ).hasMatch(option))
+                  LearningAudioButton(
+                    path: option,
+                    tooltip: 'Listen to option $letter',
+                  ),
                 Icon(icon, color: borderColor, size: 26),
               ],
             ),

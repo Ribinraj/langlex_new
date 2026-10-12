@@ -8,10 +8,11 @@ class NotificationRepository {
 
   final Dio _dio;
 
-  Future<NotificationInbox> fetchNotifications() async {
+  Future<NotificationInbox> fetchNotifications({int page = 1}) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         Endpoints.notifications,
+        queryParameters: {'page': page, 'limit': 20},
       );
       final rows = response.data?['notifications'];
       return NotificationInbox(
@@ -26,6 +27,8 @@ class NotificationRepository {
                   .toList()
             : const [],
         unreadCount: _asInt(response.data?['unread_count']),
+        total: _asInt(response.data?['pagination']?['total']),
+        hasMore: response.data?['pagination']?['has_more'] == true,
       );
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -69,10 +72,14 @@ class NotificationInbox {
   const NotificationInbox({
     required this.notifications,
     required this.unreadCount,
+    this.total = 0,
+    this.hasMore = false,
   });
 
   final List<AppNotification> notifications;
   final int unreadCount;
+  final int total;
+  final bool hasMore;
 }
 
 int _asInt(dynamic value) {

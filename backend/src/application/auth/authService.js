@@ -1,3 +1,4 @@
+const assertAccountAccess = require('./accountAccess');
 const env = require('../../infrastructure/config/env');
 const userRepository = require('../../infrastructure/repositories/userRepository');
 const userAuthIdentityRepository = require('../../infrastructure/repositories/userAuthIdentityRepository');
@@ -24,6 +25,7 @@ const register = async (payload) => {
 
   return {
     user,
+    ...otp,
     otp_expires_at: otp.expires_at,
     resend_after_seconds: otp.resend_after_seconds,
   };
@@ -39,6 +41,7 @@ const resendOtp = async (mobileNumber) => {
     throw new ApiError('User not found', 404);
   }
 
+  assertAccountAccess(user);
   const latestOtp = await otpRepository.findLatestByUser(user.id);
   const resendAfterSeconds = secondsUntilResendAvailable(latestOtp);
 
@@ -63,13 +66,15 @@ const generateAndStoreOtp = async (mobileNumber) => {
 };
 
 const createOtpForUser = async (user) => {
+  assertAccountAccess(user);
   const otp = getOtpForUser(user);
   const expiresAt = buildExpiry(env.otp.expiryMinutes);
 
   await otpRepository.create({ userId: user.id, otp, expiresAt });
-  console.log(`Generated OTP: ${otp}`);
+
 
   return {
+    ...(env.otp.exposeCode ? { display_otp: otp } : {}),
     expires_at: expiresAt.toISOString(),
     resend_after_seconds: env.otp.resendCooldownSeconds,
   };
@@ -92,6 +97,7 @@ const verifyOtp = async ({ mobile_number, otp, push_token }) => {
     throw new ApiError('User not found', 404);
   }
 
+  assertAccountAccess(user);
   const isFixedOtp = isFixedTestOtp({ mobileNumber: mobile_number, otp });
 
   if (!isFixedOtp) {
@@ -141,6 +147,7 @@ const socialLogin = async ({ id_token, push_token }) => {
     throw new ApiError('Linked user account was not found', 404);
   }
 
+  assertAccountAccess(user);
   if (!user.mobile_verified_at) {
     const otp = await createOtpForUser(user);
     debugGoogleAuth('Backend social-login result', {
@@ -151,6 +158,7 @@ const socialLogin = async ({ id_token, push_token }) => {
     return {
       requires_mobile_verification: true,
       mobile_number: user.mobile_number,
+      ...otp,
       resend_after_seconds: otp.resend_after_seconds,
     };
   }
@@ -211,6 +219,7 @@ const socialRegister = async (payload) => {
   });
   return {
     user,
+    ...otp,
     otp_expires_at: otp.expires_at,
     resend_after_seconds: otp.resend_after_seconds,
   };

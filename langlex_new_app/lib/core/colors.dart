@@ -100,6 +100,10 @@ class Appcolors {
 
   static const kbottomNavActive = Color(0xFF8B49FF);
   static const kbottomNavInactive = Color(0xFF66608D);
+  static const kbottomGlassTop = Color(0xFFFFF4E8);
+  static const kbottomGlassBottom = Color(0xFFFFE1D5);
+  static const kbottomGlassSelected = Color(0xFF7136BF);
+  static const kbottomGlassForeground = Color(0xFF706078);
   static const kbottomNavShadow = Color(0xFF9E83D8);
 
   static const klibrarySkyTop = Color(0xFFB8B9FF);
@@ -125,6 +129,32 @@ class Appcolors {
   static const klearningCategoryNumber = Color(0xFF4A8F7A);
   static const klearningCategoryFruit = Color(0xFFE05C8A);
   static const klearningCategoryVegetable = Color(0xFF5E9F6B);
+
+  // Home canvas follows the illustrated sky into soft lavender and mint.
+  static const khomeHeaderStart = Color(0xFFF5F0FF);
+  static const khomeHeaderEnd = Color(0xFFFFF6EE);
+  static const klanguageAccent = Color(0xFF7042B6);
+  static const klanguageSurface = Color(0xFFEEE5FA);
+  static const klanguageSheetBackground = Color(0xFFF8F5FF);
+  static const khomeBackgroundTop = Color(0xFFE7DFF8);
+  static const ksearchBackgroundTop = Color(0xFFB795EE);
+  static const ksearchSelectedChip = Color(0xFF167568);
+  static const khomeBackgroundMiddle = Color(0xFFDDEDFC);
+  static const khomeBackgroundBottom = Color(0xFFDAF2EE);
+
+  // Home activity tiles: bright surfaces with dark, readable foregrounds.
+  static const khomeStoryTop = Color(0xFFBB80FF);
+  static const khomeStoryBottom = Color(0xFF8558E8);
+  static const khomeStoryInk = Color(0xFF4D2586);
+  static const khomeKnowledgeTop = Color(0xFF78E5C5);
+  static const khomeKnowledgeBottom = Color(0xFF25B99D);
+  static const khomeKnowledgeInk = Color(0xFF105D4E);
+  static const khomeAlphabetTop = Color(0xFF8CD8FF);
+  static const khomeAlphabetBottom = Color(0xFF50A9EC);
+  static const khomeAlphabetInk = Color(0xFF164E83);
+  static const khomeQuizTop = Color(0xFFFFDE70);
+  static const khomeQuizBottom = Color(0xFFFFB84F);
+  static const khomeQuizInk = Color(0xFF713C0D);
 
   // Geometric background palette (matches logo's three-tone bubble theme)
   static const ksageGreen = Color(0xFF6FA890);

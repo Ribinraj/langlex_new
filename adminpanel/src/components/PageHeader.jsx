@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Box, Button, Stack, Typography } from '@mui/material'
 
 export default function PageHeader({ title, subtitle, action, actionIcon }) {
@@ -12,7 +13,11 @@ export default function PageHeader({ title, subtitle, action, actionIcon }) {
       }}
     >
       <Box>
-        <Typography variant="h4" sx={{ fontSize: { xs: 24, md: 30 }, mb: 0.5 }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{ fontSize: { xs: 24, md: 30 }, mb: 0.5 }}
+        >
           {title}
         </Typography>
         {subtitle ? (
@@ -22,7 +27,15 @@ export default function PageHeader({ title, subtitle, action, actionIcon }) {
         ) : null}
       </Box>
       {action ? (
-        <Button variant="contained" startIcon={actionIcon} onClick={action.onClick}>
+        <Button
+          component={action.to ? Link : 'button'}
+          to={action.to}
+          sx={{ flexShrink: 0 }}
+          variant="contained"
+          startIcon={actionIcon}
+          onClick={action.onClick}
+          disabled={action.disabled}
+        >
           {action.label}
         </Button>
       ) : null}

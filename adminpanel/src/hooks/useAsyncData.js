@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function useAsyncData(loader) {
+  const generation = useRef(0)
   const [state, setState] = useState({
     data: null,
     loading: true,
@@ -8,12 +9,15 @@ export function useAsyncData(loader) {
   })
 
   const load = useCallback(async () => {
+    const request = ++generation.current
     setState((current) => ({ ...current, loading: true, error: '' }))
     try {
       const data = await loader()
+      if (request !== generation.current) return null
       setState({ data, loading: false, error: '' })
       return data
     } catch (error) {
+      if (request !== generation.current) return null
       setState({
         data: null,
         loading: false,
@@ -23,9 +27,11 @@ export function useAsyncData(loader) {
     }
   }, [loader])
 
+  const invalidate = useCallback(() => { generation.current++ }, [])
   useEffect(() => {
     load()
-  }, [load])
+    return invalidate
+  }, [load, invalidate])
 
   return { ...state, reload: load }
 }

@@ -30,6 +30,19 @@ const updateProfile = async (user, payload) => {
   return updatedUser;
 };
 
+const updatePushToken = async (user, pushToken) => {
+  const updatedUser = await userRepository.updatePushToken(
+    user.id,
+    nullable(pushToken),
+  );
+
+  if (!updatedUser) {
+    throw new ApiError('User not found', 404);
+  }
+
+  return updatedUser;
+};
+
 const nullable = (value) => {
   const text = value?.trim() ?? '';
   return text || null;
@@ -38,4 +51,5 @@ const nullable = (value) => {
 module.exports = {
   getProfile,
   updateProfile,
+  updatePushToken,
 };

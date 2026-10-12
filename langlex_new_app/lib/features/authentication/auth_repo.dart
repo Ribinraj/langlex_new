@@ -40,14 +40,38 @@ class SocialLoginNeedsRegistration extends SocialLoginResult {
   final SocialRegistrationDraft draft;
 }
 
+class OtpChallenge {
+  const OtpChallenge({
+    this.resendAfterSeconds = 30,
+    this.displayCode,
+    this.expiresAt,
+  });
+  final int resendAfterSeconds;
+  final String? displayCode;
+  final DateTime? expiresAt;
+  factory OtpChallenge.fromJson(Map<String, dynamic>? data) {
+    final seconds = int.tryParse('${data?['resend_after_seconds']}') ?? 30;
+    final code = data?['display_otp']?.toString();
+    return OtpChallenge(
+      resendAfterSeconds: seconds.clamp(0, 300),
+      displayCode: code != null && RegExp(r'^\d{6}$').hasMatch(code)
+          ? code
+          : null,
+      expiresAt: DateTime.tryParse(
+        '${data?['expires_at'] ?? data?['otp_expires_at']}',
+      ),
+    );
+  }
+}
+
 class SocialLoginNeedsOtp extends SocialLoginResult {
   const SocialLoginNeedsOtp({
     required this.mobileNumber,
-    required this.resendAfterSeconds,
+    required this.challenge,
   });
 
   final String mobileNumber;
-  final int resendAfterSeconds;
+  final OtpChallenge challenge;
 }
 
 class AuthRepository {
@@ -75,7 +99,7 @@ class AuthRepository {
     }
   }
 
-  Future<int> register({
+  Future<OtpChallenge> register({
     required String fullName,
     required String mobileNumber,
     required String school,
@@ -96,33 +120,33 @@ class AuthRepository {
         },
         options: Options(extra: {DioClient.skipAuthKey: true}),
       );
-      return _resendSecondsFromResponse(response.data);
+      return OtpChallenge.fromJson(response.data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
   }
 
-  Future<int> sendOtp({required String mobileNumber}) async {
+  Future<OtpChallenge> sendOtp({required String mobileNumber}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         Endpoints.sendOtp,
         data: {'mobile_number': mobileNumber},
         options: Options(extra: {DioClient.skipAuthKey: true}),
       );
-      return _resendSecondsFromResponse(response.data);
+      return OtpChallenge.fromJson(response.data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
   }
 
-  Future<int> resendOtp({required String mobileNumber}) async {
+  Future<OtpChallenge> resendOtp({required String mobileNumber}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         Endpoints.resendOtp,
         data: {'mobile_number': mobileNumber},
         options: Options(extra: {DioClient.skipAuthKey: true}),
       );
-      return _resendSecondsFromResponse(response.data);
+      return OtpChallenge.fromJson(response.data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -203,7 +227,7 @@ class AuthRepository {
     }
   }
 
-  Future<int> completeSocialRegistration({
+  Future<OtpChallenge> completeSocialRegistration({
     required String fullName,
     required String mobileNumber,
     required String school,
@@ -230,7 +254,7 @@ class AuthRepository {
         'Backend social-register response',
         _sanitizeForLog(response.data),
       );
-      return _resendSecondsFromResponse(response.data);
+      return OtpChallenge.fromJson(response.data);
     } on ApiException {
       rethrow;
     } on DioException catch (error) {
@@ -346,7 +370,7 @@ class AuthRepository {
       if (data['requires_mobile_verification'] == true) {
         return SocialLoginNeedsOtp(
           mobileNumber: data['mobile_number']?.toString() ?? '',
-          resendAfterSeconds: _resendSecondsFromResponse(data),
+          challenge: OtpChallenge.fromJson(data),
         );
       }
 
@@ -389,15 +413,13 @@ class AuthRepository {
       return value.map((key, item) {
         final textKey = key.toString().toLowerCase();
         final shouldMask =
+            textKey.contains('otp') ||
             textKey == 'token' ||
             textKey.endsWith('_token') ||
             textKey.contains('access_token') ||
             textKey.contains('refresh_token') ||
             textKey.contains('id_token');
-        return MapEntry(
-          key,
-          shouldMask ? _maskToken(item?.toString()) : _sanitizeForLog(item),
-        );
+        return MapEntry(key, shouldMask ? '[redacted]' : _sanitizeForLog(item));
       });
     }
 
@@ -433,15 +455,5 @@ class AuthRepository {
   String? _nullable(String? value) {
     final text = value?.trim() ?? '';
     return text.isEmpty ? null : text;
-  }
-
-  int _resendSecondsFromResponse(Map<String, dynamic>? data) {
-    final value = data?['resend_after_seconds'];
-    if (value is num) return value.round().clamp(1, 300).toInt();
-    if (value is String) {
-      final parsed = int.tryParse(value);
-      if (parsed != null) return parsed.clamp(1, 300).toInt();
-    }
-    return defaultOtpResendSeconds;
   }
 }

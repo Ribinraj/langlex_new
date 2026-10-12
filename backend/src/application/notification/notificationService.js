@@ -1,4 +1,7 @@
 const notificationRepository = require('../../infrastructure/repositories/notificationRepository');
+const fcmService = require('../../infrastructure/firebase/fcmService');
+const { withTransaction } = require('../../infrastructure/database/db');
+const audit = require('../admin/auditService');
 const ApiError = require('../../shared/errors/apiError');
 
 const defaultNotifications = [
@@ -9,8 +12,8 @@ const defaultNotifications = [
     data: { action: 'open_learn' },
   },
   {
-    title: 'Set your daily goal',
-    body: 'A short daily goal helps children build a steady learning habit.',
+    title: 'Set up your learning',
+    body: 'Choose your language and student level to personalize learning.',
     type: 'setup',
     data: { action: 'open_learning_setup' },
   },
@@ -31,14 +34,16 @@ const ensureDefaultNotifications = async (userId) => {
   }
 };
 
-const listNotifications = async ({ userId, limit }) => {
+const listNotifications = async ({ userId, page = 1, limit = 20 }) => {
   await ensureDefaultNotifications(userId);
   const notifications = await notificationRepository.listForUser({
     userId,
-    limit,
+    page, limit,
   });
   const unreadCount = await notificationRepository.unreadCount(userId);
-  return { notifications, unread_count: unreadCount };
+  const total = await notificationRepository.countForUser(userId);
+  const { pagination } = require('../../shared/utils/pagination').pageResult(notifications, total, { page, limit });
+  return { notifications, unread_count: unreadCount, pagination };
 };
 
 const getUnreadCount = async (userId) => {
@@ -71,9 +76,62 @@ const markAllRead = async (userId) => {
   return { notifications, unread_count: 0 };
 };
 
+const sendAdminNotification = async ({
+  admin,
+  broadcast = false,
+  userId,
+  title,
+  body,
+  type = 'info',
+  data = {},
+}) => {
+  if (!broadcast && (!Number.isInteger(Number(userId)) || Number(userId) <= 0)) {
+    throw new ApiError('A valid user ID is required for a targeted notification', 422);
+  }
+  const targets = await notificationRepository.listTargets({
+    userId: broadcast ? undefined : userId,
+  });
+
+  if (!broadcast && targets.length === 0) {
+    throw new ApiError('User not found', 404);
+  }
+
+  const createdNotifications = await withTransaction(async () => {
+    const created = [];
+    for (const target of targets) {
+      created.push(await notificationRepository.create({userId: target.id, title, body, type, data}));
+    }
+    if (admin) await audit.record(admin, {action:'send', entity:'notifications', id: broadcast ? null : userId,
+      after: {title, body, type, data, broadcast, recipients:targets.map(target=>target.id), sent:created.length}});
+    return created;
+  });
+
+  const push = await fcmService.sendToTokens({
+    tokens: targets.map((target) => target.push_token),
+    title,
+    body,
+    data: {
+      ...data,
+      action: data.action || 'open_notifications',
+      type,
+    },
+  });
+
+  for (const invalidToken of push.invalidTokens) {
+    await notificationRepository.clearPushToken(invalidToken);
+  }
+
+  return {
+    sent: createdNotifications.length,
+    notification: broadcast ? undefined : createdNotifications[0],
+    push,
+  };
+};
+
 module.exports = {
   listNotifications,
   getUnreadCount,
   markRead,
   markAllRead,
+  sendAdminNotification,
 };

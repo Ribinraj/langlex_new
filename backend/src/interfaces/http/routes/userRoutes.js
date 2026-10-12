@@ -8,7 +8,6 @@ const asyncHandler = require('../../../shared/utils/asyncHandler');
 
 const router = express.Router();
 
-const ageGroups = ['2-3 years', '3-4 years', '4-5 years', '5-6 years', '6+ years'];
 const academicLevels = ['Playgroup', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2'];
 
 const profileSchema = Joi.object({
@@ -19,37 +18,38 @@ const profileSchema = Joi.object({
   state: Joi.string().trim().min(2).max(120).allow('', null).optional(),
 });
 
+const pushTokenSchema = Joi.object({
+  push_token: Joi.string().trim().max(4096).allow('', null).required(),
+});
+
 const learningSetupSchema = Joi.object({
   child_name: Joi.string().trim().min(2).max(120).allow('', null).optional(),
-  age_group: Joi.string().valid(...ageGroups).required(),
-  primary_language: Joi.string().trim().min(2).max(80).required(),
-  learning_language: Joi.string().trim().min(2).max(80).required(),
+  primary_language: Joi.string().trim().min(2).max(80).optional(),
+  learning_language: Joi.string().trim().min(2).max(80).optional(),
+  active_language: Joi.string().trim().min(2).max(80).optional(),
+  selected_languages: Joi.array().items(Joi.string().trim().min(2).max(80)).length(3).unique().optional(),
   level: Joi.string().valid(...academicLevels).required(),
   interests: Joi.array().items(Joi.string().trim().min(1).max(120)).max(12).default([]),
-  daily_goal_minutes: Joi.number().integer().min(5).max(180).default(15),
   plan_id: Joi.number().integer().positive().allow(null).optional(),
 });
 
-const dailyGoalProgressSchema = Joi.object({
-  activity_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  activity_type: Joi.string().valid('word', 'quiz').required(),
-  activity_key: Joi.string().trim().min(1).max(160).required(),
-  estimated_minutes: Joi.number().integer().min(1).max(15).optional(),
-});
-
 const contentProgressQuerySchema = Joi.object({
-  content_type: Joi.string().valid('course', 'quiz', 'phonics', 'story').required(),
+  content_type: Joi.string().valid('course', 'quiz', 'phonics', 'story', 'alphabet').required(),
   content_key: Joi.string().trim().min(1).max(160).required(),
 });
 
 const contentProgressSchema = Joi.object({
-  content_type: Joi.string().valid('course', 'quiz', 'phonics', 'story').required(),
+  content_type: Joi.string().valid('course', 'quiz', 'phonics', 'story', 'alphabet').required(),
   content_key: Joi.string().trim().min(1).max(160).required(),
   status: Joi.string().valid('not_started', 'in_progress', 'completed').optional(),
   position: Joi.number().integer().min(0).default(0),
   total_items: Joi.number().integer().min(0).default(0),
   score: Joi.number().integer().min(0).default(0),
   metadata: Joi.object().unknown(true).optional(),
+  event_id: Joi.string().pattern(/^[a-zA-Z0-9_-]{8,80}$/).optional(),
+  session_id: Joi.string().max(80).optional(),
+  next_session_id: Joi.string().pattern(/^[a-zA-Z0-9_-]{8,80}$/).optional(),
+  answer: Joi.string().max(1000).allow('').optional(),
 });
 
 const contentProgressItemSchema = contentProgressSchema.keys({
@@ -64,6 +64,12 @@ router.put(
   validate(profileSchema),
   asyncHandler(userController.updateProfile),
 );
+router.post(
+  '/push-token',
+  authenticate,
+  validate(pushTokenSchema),
+  asyncHandler(userController.updatePushToken),
+);
 router.get(
   '/learning-setup',
   authenticate,
@@ -75,17 +81,10 @@ router.put(
   validate(learningSetupSchema),
   asyncHandler(userController.saveLearningSetup),
 );
-router.get(
-  '/daily-goal',
-  authenticate,
-  asyncHandler(userController.getDailyGoal),
-);
-router.post(
-  '/daily-goal/progress',
-  authenticate,
-  validate(dailyGoalProgressSchema),
-  asyncHandler(userController.recordDailyProgress),
-);
+router.get('/learning-progress', authenticate, validate(Joi.object({ language: Joi.string().trim().max(80).optional() }), 'query'), asyncHandler(async (req, res) => {
+  res.json({ progress: await require('../../../application/learning/contentProgressService').overview(req.user, req.query) });
+}));
+
 router.get(
   '/content-progress',
   authenticate,

@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/features/learning/widgets/content_shimmers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -6,8 +8,6 @@ import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
-import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
-import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_event.dart';
 import 'package:langlex_new_app/features/learning/learning_repo.dart';
 import 'package:langlex_new_app/features/learning/models/learning_models.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
@@ -28,9 +28,15 @@ class CourseDetailPage extends StatefulWidget {
 
 class _CourseDetailPageState extends State<CourseDetailPage> {
   late final PageController _pageController;
-  final Set<String> _dailyRecordedWordKeys = {};
+  final Set<String> _revealedWordKeys = {};
+  final Map<int, LearningWord> _words = {};
+  final Set<int> _loadingPages = {};
+  final Set<int> _loadedPages = {};
+  final Set<int> _failedPages = {};
+  static const _pageSize = 20;
   int _selectedIndex = 0;
-
+  late int _totalWords;
+  bool _initializing = true;
   LearningCourse get course => widget.course;
   String get _contentKey => 'course-${course.id}';
 
@@ -38,11 +44,13 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _loadSavedProgress();
-      _recordWordProgress(0);
-    });
+    _totalWords = course.wordCount;
+    if (course.id < 0) {
+      for (var i = 0; i < course.words.length; i++) {
+        _words[i] = course.words[i];
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
   }
 
   @override
@@ -51,61 +59,95 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     super.dispose();
   }
 
+  Future<void> _initialize() async {
+    var resume = 0;
+    try {
+      final progress = await context
+          .read<LearningRepository>()
+          .getContentProgress(contentType: 'course', contentKey: _contentKey);
+      resume = progress.position;
+    } catch (_) {
+      /* A failed progress lookup must not block a lesson. */
+    }
+    if (!mounted) return;
+    _selectedIndex = _totalWords > 0 ? resume.clamp(0, _totalWords - 1) : 0;
+    await _loadPageFor(_selectedIndex);
+    if (!mounted) return;
+    setState(() => _initializing = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_selectedIndex);
+      }
+      _recordWordProgress(_selectedIndex);
+    });
+  }
+
+  Future<void> _loadPageFor(int index) async {
+    if (course.id < 0 || !mounted) return;
+    final page = index ~/ _pageSize + 1;
+    if (_loadingPages.contains(page) || _loadedPages.contains(page)) return;
+    _loadingPages.add(page);
+    _failedPages.remove(page);
+    try {
+      final result = await context.read<LearningRepository>().fetchPage(
+        'content',
+        LearningWord.fromContentJson,
+        page: page,
+        limit: _pageSize,
+        filters: {'course': course.title, 'language': course.language},
+      );
+      if (!mounted) return;
+      setState(() {
+        _totalWords = result.total;
+        _loadedPages.add(page);
+        for (var i = 0; i < result.items.length; i++) {
+          _words[(page - 1) * _pageSize + i] = result.items[i];
+        }
+      });
+      if (_selectedIndex ~/ _pageSize + 1 == page && !_initializing) {
+        _recordWordProgress(_selectedIndex);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _failedPages.add(page));
+    } finally {
+      _loadingPages.remove(page);
+    }
+  }
+
   void _goTo(int index) {
-    if (course.words.isEmpty) return;
-    final nextIndex = index.clamp(0, course.words.length - 1);
+    if (_totalWords == 0 || !_pageController.hasClients) return;
     _pageController.animateToPage(
-      nextIndex,
+      index.clamp(0, _totalWords - 1),
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
   }
 
   void _recordWordProgress(int index) {
-    if (index < 0 || index >= course.words.length) return;
-    final word = course.words[index];
-    LearningAssetSound.play(
-      index == course.words.length - 1
-          ? KidsLearningAssets.successChimeSound
-          : KidsLearningAssets.wordRevealSound,
-    );
-    final wordKey = word.id > 0
-        ? 'content-${word.id}'
-        : 'course-${course.id}-${word.term.toLowerCase()}-$index';
-    if (_dailyRecordedWordKeys.add(wordKey)) {
-      context.read<LearningBloc>().add(
-        RecordDailyProgressEvent(
-          activityType: 'word',
-          activityKey: wordKey,
-          estimatedMinutes: 1,
-        ),
-      );
+    final word = _words[index];
+    if (word == null) return;
+    final wordKey = 'content-${word.id}';
+    if (_revealedWordKeys.add(wordKey)) {
+      if (word.audioPath.isEmpty) {
+        LearningAssetSound.play(
+          index == _totalWords - 1
+              ? KidsLearningAssets.successChimeSound
+              : KidsLearningAssets.wordRevealSound,
+        );
+      }
     }
-
-    context.read<LearningRepository>().recordContentItem(
-      contentType: 'course',
-      contentKey: _contentKey,
-      itemKey: wordKey,
-      position: index,
-      totalItems: course.words.length,
-      status: index == course.words.length - 1 ? 'completed' : 'in_progress',
-    );
-  }
-
-  Future<void> _loadSavedProgress() async {
-    if (course.words.isEmpty) return;
-    try {
-      final progress = await context
-          .read<LearningRepository>()
-          .getContentProgress(contentType: 'course', contentKey: _contentKey);
-      if (!mounted || progress.position <= 0) return;
-      final resumeIndex = progress.position.clamp(0, course.words.length - 1);
-      setState(() => _selectedIndex = resumeIndex);
-      _pageController.jumpToPage(resumeIndex);
-      _recordWordProgress(resumeIndex);
-    } catch (_) {
-      // Resume should never block the lesson.
-    }
+    context
+        .read<LearningRepository>()
+        .recordContentItem(
+          contentType: 'course',
+          contentKey: _contentKey,
+          itemKey: wordKey,
+          position: index,
+          totalItems: _totalWords,
+          status: index == _totalWords - 1 ? 'completed' : 'in_progress',
+        )
+        .then<void>((_) {}, onError: (Object _) {});
   }
 
   Future<void> _restartPractice() async {
@@ -114,20 +156,18 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
         contentType: 'course',
         contentKey: _contentKey,
       );
-    } catch (_) {
-      // Local restart still works if the network is unavailable.
-    }
+    } catch (_) {}
     if (!mounted) return;
     setState(() => _selectedIndex = 0);
-    _pageController.jumpToPage(0);
+    await _loadPageFor(0);
+    if (!mounted) return;
+    if (_pageController.hasClients) _pageController.jumpToPage(0);
     _recordWordProgress(0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final words = course.words;
     final t = AppLocalizations(widget.homeLanguage);
-
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
       body: SafeArea(
@@ -150,7 +190,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                   title: course.title,
                   t: t,
                   onBack: () => Navigator.of(context).maybePop(),
-                  onRestart: course.words.isEmpty ? null : _restartPractice,
+                  onRestart: _totalWords == 0 ? null : _restartPractice,
                 ),
                 ResponsiveSizedBox.height(1.2),
                 _CourseHeader(
@@ -159,40 +199,72 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                 ),
                 ResponsiveSizedBox.height(1.4),
                 _LessonWordHeader(
-                  title: words.isEmpty
+                  title: _totalWords == 0
                       ? t.lessonWords
-                      : t.lessonWord(_selectedIndex + 1, words.length),
+                      : t.lessonWord(_selectedIndex + 1, _totalWords),
                   accent: course.accent,
                 ),
                 ResponsiveSizedBox.height(0.8),
-                if (words.isEmpty)
-                  _EmptyLessonCard(accent: course.accent, t: t)
+                if (_initializing)
+                  LessonShimmer(label: t.loadingLessons, showControls: true)
+                else if (_totalWords == 0 && _failedPages.isNotEmpty)
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _initializing = true);
+                      _initialize();
+                    },
+                    child: const Text('Could not load lesson. Retry'),
+                  )
+                else if (_totalWords == 0)
+                  _EmptyLessonCard(t: t)
                 else ...[
                   SizedBox(
                     height: ResponsiveUtils.isMobile(context) ? 440 : 500,
                     child: PageView.builder(
                       controller: _pageController,
-                      itemCount: words.length,
+                      itemCount: _totalWords,
                       onPageChanged: (index) {
                         setState(() => _selectedIndex = index);
+                        _loadPageFor(index);
                         _recordWordProgress(index);
                       },
                       itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child: _LargeWordCard(
-                            word: words[index],
-                            accent: course.accent,
-                            t: t,
-                          ),
+                        final word = _words[index];
+                        if (word != null) {
+                          return SingleChildScrollView(
+                            key: PageStorageKey('word-card-$index'),
+                            padding: const EdgeInsets.fromLTRB(2, 0, 2, 16),
+                            child: _LargeWordCard(
+                              word: word,
+                              active: index == _selectedIndex,
+                              accent: course.accent,
+                              t: t,
+                            ),
+                          );
+                        }
+                        final page = index ~/ _pageSize + 1;
+                        if (_failedPages.contains(page)) {
+                          return Center(
+                            child: TextButton(
+                              onPressed: () {
+                                setState(() => _failedPages.remove(page));
+                                _loadPageFor(index);
+                              },
+                              child: const Text('Could not load words. Retry'),
+                            ),
+                          );
+                        }
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => _loadPageFor(index),
                         );
+                        return LessonShimmer(label: t.loadingLessons);
                       },
                     ),
                   ),
                   ResponsiveSizedBox.height(1),
                   _WordControls(
                     currentIndex: _selectedIndex,
-                    itemCount: words.length,
+                    itemCount: _totalWords,
                     accent: course.accent,
                     t: t,
                     onPrevious: () => _goTo(_selectedIndex - 1),
@@ -540,11 +612,13 @@ class _LessonWordHeader extends StatelessWidget {
 class _LargeWordCard extends StatelessWidget {
   const _LargeWordCard({
     required this.word,
+    required this.active,
     required this.accent,
     required this.t,
   });
 
   final LearningWord word;
+  final bool active;
   final Color accent;
   final AppLocalizations t;
 
@@ -580,191 +654,63 @@ class _LargeWordCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
         children: [
-          Positioned(
-            left: -16,
-            top: -12,
-            child: SvgPicture.asset(
-              KidsLearningAssets.rainbowIcon,
-              width: isMobile ? 86 : 116,
-              height: isMobile ? 70 : 90,
+          AspectRatio(
+            aspectRatio: 1.5,
+            child: LearningMediaImage(
+              path: word.imagePath,
+              accent: accent,
+              width: double.infinity,
               fit: BoxFit.contain,
             ),
           ),
-          Positioned(
-            right: -10,
-            top: -12,
-            child: _LessonCloudAsset(width: isMobile ? 68 : 90, opacity: 0.88),
+          const SizedBox(height: 16),
+          ResponsiveText(
+            word.term,
+            fontSize: isMobile ? 36 : 48,
+            weight: FontWeight.w900,
+            color: accent,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.visible,
           ),
-          Positioned(
-            right: 24,
-            top: 13,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: accent.withValues(alpha: 0.58),
-              size: 18,
+          const SizedBox(height: 12),
+          ResponsiveText(
+            word.meaning,
+            fontSize: 16,
+            weight: FontWeight.w700,
+            color: Appcolors.kheroGreetingText,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.visible,
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Appcolors.kauthSoftGreen,
+              borderRadius: BorderRadius.circular(24),
             ),
-          ),
-          Positioned(
-            left: -8,
-            bottom: -5,
-            child: SvgPicture.asset(
-              KidsLearningAssets.profileLionIcon,
-              width: isMobile ? 72 : 94,
-              height: isMobile ? 72 : 94,
-              fit: BoxFit.contain,
-            ),
-          ),
-          Column(
-            children: [
-              SizedBox(height: isMobile ? 50 : 60),
-              SizedBox(
-                height: isMobile ? 168 : 212,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Appcolors.kwhitecolor,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.16),
-                        blurRadius: 13,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: LearningMediaImage(
-                    path: word.imagePath,
-                    accent: accent,
-                    width: double.infinity,
-                    height: double.infinity,
-                    borderRadius: 17,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                LearningAudioButton(
+                  path: word.listenAudioPath,
+                  autoplayPath: word.audioPath,
+                  active: active,
+                  tooltip: t.listen,
+                  filled: true,
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: ResponsiveText(
+                    t.listen,
+                    fontSize: 16,
+                    weight: FontWeight.w800,
+                    color: Appcolors.kdashboardTeal,
+                    overflow: TextOverflow.visible,
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  word.term,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(
-                    fontSize: isMobile ? 58 : 76,
-                    fontWeight: FontWeight.w900,
-                    color: accent,
-                    height: 0.95,
-                    shadows: [
-                      Shadow(
-                        color: Appcolors.kwhitecolor.withValues(alpha: 0.95),
-                        offset: const Offset(0, 2),
-                        blurRadius: 1,
-                      ),
-                      Shadow(
-                        color: accent.withValues(alpha: 0.28),
-                        offset: const Offset(0, 5),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 7),
-              Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Appcolors.kwhitecolor.withValues(alpha: 0.94),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: accent.withValues(alpha: 0.20),
-                    width: 1.4,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.10),
-                      blurRadius: 9,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ResponsiveText(
-                  word.meaning,
-                  fontSize: 13,
-                  weight: FontWeight.w900,
-                  color: Appcolors.kheroGreetingText,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.visible,
-                  maxLines: 2,
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Center(
-              child: Container(
-                width: isMobile ? 232 : 280,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Appcolors.kbottomNavActive,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Appcolors.kbottomNavActive.withValues(alpha: 0.28),
-                      blurRadius: 13,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Appcolors.kwhitecolor.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Appcolors.kwhitecolor.withValues(alpha: 0.22),
-                          width: 2,
-                        ),
-                      ),
-                      child: LearningAudioButton(
-                        path: word.audioPath,
-                        tooltip: t.playWord(word.term),
-                        filled: true,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ResponsiveText(
-                      t.listen,
-                      fontSize: 16,
-                      weight: FontWeight.w900,
-                      color: Appcolors.kwhitecolor,
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.music_note_rounded,
-                      color: Appcolors.klearningPlayfulYellow,
-                      size: 20,
-                    ),
-                    Icon(
-                      Icons.music_note_rounded,
-                      color: Appcolors.klearningPlayfulGreen,
-                      size: 17,
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ),
           ),
         ],
@@ -807,23 +753,13 @@ class _WordControls extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < itemCount; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: i == currentIndex ? 25 : 9,
-                  height: 9,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: i == currentIndex
-                        ? accent
-                        : Appcolors.kdashboardMutedIcon.withValues(alpha: 0.70),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-            ],
+          child: LinearProgressIndicator(
+            value: (currentIndex + 1) / itemCount,
+            semanticsLabel: t.lessonWord(currentIndex + 1, itemCount),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(99),
+            color: accent,
+            backgroundColor: Appcolors.kauthDivider,
           ),
         ),
         const SizedBox(width: 8),
@@ -906,32 +842,19 @@ class _PracticeHintPanel extends StatelessWidget {
 }
 
 class _EmptyLessonCard extends StatelessWidget {
-  const _EmptyLessonCard({required this.accent, required this.t});
-
+  const _EmptyLessonCard({required this.t});
   final AppLocalizations t;
 
-  final Color accent;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Appcolors.kwhitecolor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Appcolors.kauthDivider),
-      ),
-      child: ResponsiveText(
-        t.emptyLesson,
-        fontSize: 15,
-        weight: FontWeight.w900,
-        color: accent,
-        textAlign: TextAlign.center,
-        overflow: TextOverflow.visible,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppEmptyState(
+    kind: EmptyStateKind.lessons,
+    title: t.nothingHereYet,
+    message: t.emptyLesson,
+    actionLabel: Navigator.of(context).canPop() ? t.goBack : null,
+    onAction: Navigator.of(context).canPop()
+        ? () => Navigator.of(context).maybePop()
+        : null,
+  );
 }
 
 class _RoundLessonButton extends StatelessWidget {

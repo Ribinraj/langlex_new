@@ -1,3 +1,9 @@
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/payments/pages/payment_checkout_page.dart';
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/core/widgets/app_shimmer.dart';
+import 'package:langlex_new_app/features/learning/widgets/content_shimmers.dart';
+import 'package:langlex_new_app/features/learning/widgets/alphabet_catalog_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -13,8 +19,7 @@ import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_e
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
 import 'package:langlex_new_app/features/learning/learning_repo.dart';
 import 'package:langlex_new_app/features/learning/models/learning_models.dart';
-import 'package:langlex_new_app/features/learning/pages/phonics_practice_page.dart';
-import 'package:langlex_new_app/features/learning/pages/quiz_practice_page.dart';
+import 'package:langlex_new_app/features/learning/pages/practice_catalog_page.dart';
 import 'package:langlex_new_app/features/learning/pages/story_reader_page.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 
@@ -27,15 +32,40 @@ class PracticePage extends StatelessWidget {
       builder: (context, state) {
         const fallback = AppLocalizations('English');
         if (state is LearningLoading || state is LearningInitial) {
-          return DashboardPageLayout(
-            children: [
-              DashboardHeader(
-                title: fallback.practice,
-                subtitle: fallback.practiceSubtitle,
-              ),
-              const SizedBox(height: 24),
-              _PracticeStatusPanel(message: fallback.loadingPracticeContent),
-            ],
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 132),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppShimmer(
+                  label: fallback.loadingPracticeContent,
+                  child: _PracticeHeroSection(
+                    t: fallback,
+                    storiesCount: 0,
+                    questionsCount: 0,
+                    loading: true,
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -14),
+                  child: Padding(
+                    padding: ResponsiveUtils.pagePadding(
+                      context,
+                      mobileHorizontalPercent: 6,
+                      tabletHorizontal: 42,
+                      desktopHorizontal: 56,
+                    ).copyWith(top: 0),
+                    child: ResponsiveUtils.constrainWidth(
+                      context: context,
+                      maxWidth: 680,
+                      child: PracticeShimmer(
+                        label: fallback.loadingPracticeContent,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
@@ -114,7 +144,12 @@ class PracticePage extends StatelessWidget {
                     _PracticeAlphabetHeader(title: t.alphabetPractice),
                     ResponsiveSizedBox.height(1.2),
                     if (alphabets.isEmpty)
-                      _PracticeStatusPanel(message: t.noAlphabetRows)
+                      AppEmptyState(
+                        kind: EmptyStateKind.alphabets,
+                        title: t.nothingHereYet,
+                        message: t.noAlphabetRows,
+                        compact: true,
+                      )
                     else
                       SizedBox(
                         height: 124,
@@ -128,6 +163,20 @@ class PracticePage extends StatelessWidget {
                           },
                         ),
                       ),
+                    const SizedBox(height: 18),
+                    BrowseAlphabetButton(
+                      count: catalog.totals['alphabets'] ?? alphabets.length,
+                      language: selectedLanguage,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PracticeCatalogPage(
+                            resource: 'alphabets',
+                            language: selectedLanguage,
+                            homeLanguage: catalog.setup.primaryLanguage,
+                          ),
+                        ),
+                      ),
+                    ),
                     ResponsiveSizedBox.height(2.6),
                     _PracticeModesHeader(title: t.practiceModes),
                     ResponsiveSizedBox.height(1.2),
@@ -135,7 +184,9 @@ class PracticePage extends StatelessWidget {
                       leadingAssetPath: 'assets/icons/man.svg',
                       artworkAssetPath: 'assets/icons/music.svg',
                       title: t.phonics,
-                      subtitle: t.soundCards(phonics.length),
+                      subtitle: t.soundCards(
+                        catalog.totals['phonics'] ?? phonics.length,
+                      ),
                       accent: Appcolors.kdashboardTeal,
                       surface: Appcolors.kauthSoftGreen,
                       onTap: phonics.isEmpty
@@ -143,8 +194,9 @@ class PracticePage extends StatelessWidget {
                           : () {
                               Navigator.of(context).push(
                                 playfulRoute(
-                                  page: PhonicsPracticePage(
-                                    phonics: phonics,
+                                  page: PracticeCatalogPage(
+                                    resource: 'phonics',
+                                    language: selectedLanguage,
                                     homeLanguage: catalog.setup.primaryLanguage,
                                   ),
                                 ),
@@ -156,7 +208,9 @@ class PracticePage extends StatelessWidget {
                       leadingAssetPath: 'assets/icons/conversations.svg',
                       artworkAssetPath: 'assets/icons/quiz.svg',
                       title: t.quiz,
-                      subtitle: t.quickQuestions(quizQuestions.length),
+                      subtitle: t.quickQuestions(
+                        catalog.totals['quizzes'] ?? quizQuestions.length,
+                      ),
                       accent: Appcolors.kbottomNavActive,
                       surface: Appcolors.ksoftPrimarySurface,
                       onTap: quizQuestions.isEmpty
@@ -164,11 +218,10 @@ class PracticePage extends StatelessWidget {
                           : () {
                               Navigator.of(context).push(
                                 playfulRoute(
-                                  page: QuizPracticePage(
-                                    questions: quizQuestions,
+                                  page: PracticeCatalogPage(
+                                    resource: 'quizzes',
+                                    language: selectedLanguage,
                                     homeLanguage: catalog.setup.primaryLanguage,
-                                    contentKey:
-                                        'practice-quiz-$selectedLanguage',
                                   ),
                                 ),
                               );
@@ -176,6 +229,7 @@ class PracticePage extends StatelessWidget {
                     ),
                     ResponsiveSizedBox.height(1.4),
                     _StoryPracticeTile(
+                      plans: catalog.plans,
                       stories: stories,
                       t: t,
                       homeLanguage: catalog.setup.primaryLanguage,
@@ -196,11 +250,13 @@ class _PracticeHeroSection extends StatelessWidget {
     required this.t,
     required this.storiesCount,
     required this.questionsCount,
+    this.loading = false,
   });
 
   final AppLocalizations t;
   final int storiesCount;
   final int questionsCount;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -310,11 +366,26 @@ class _PracticeHeroSection extends StatelessWidget {
                 left: sideInset - 10,
                 right: sideInset - 10,
                 bottom: 34,
-                child: _PracticeHeroStatsPanel(
-                  storiesCount: storiesCount,
-                  questionsCount: questionsCount,
-                  t: t,
-                ),
+                child: loading
+                    ? const SizedBox(
+                        height: 96,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SkeletonBlock(height: 96, radius: 24),
+                            ),
+                            SizedBox(width: 14),
+                            Expanded(
+                              child: SkeletonBlock(height: 96, radius: 24),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _PracticeHeroStatsPanel(
+                        storiesCount: storiesCount,
+                        questionsCount: questionsCount,
+                        t: t,
+                      ),
               ),
               Positioned(
                 left: 0,
@@ -796,12 +867,14 @@ class _PracticeModeTile extends StatelessWidget {
 
 class _StoryPracticeTile extends StatefulWidget {
   const _StoryPracticeTile({
+    required this.plans,
     required this.stories,
     required this.t,
     required this.homeLanguage,
   });
 
   final List<StoryItem> stories;
+  final List<SubscriptionPlan> plans;
   final AppLocalizations t;
   final String homeLanguage;
 
@@ -851,6 +924,12 @@ class _StoryPracticeTileState extends State<_StoryPracticeTile> {
     return FutureBuilder<StoryItem?>(
       future: _storyFuture,
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return AppShimmer(
+            label: widget.t.loadingPracticeContent,
+            child: const PracticeModeShimmerCard(),
+          );
+        }
         final story = snapshot.data;
         return _PracticeModeTile(
           leadingAssetPath: KidsLearningAssets.openBookIcon,
@@ -863,14 +942,55 @@ class _StoryPracticeTileState extends State<_StoryPracticeTile> {
           onTap: story == null
               ? null
               : () async {
+                  final repository = context.read<LearningRepository>();
+                  if (story.access == LearningAccess.premium) {
+                    try {
+                      final hasAccess = await repository.hasPremiumAccess();
+                      if (!context.mounted) return;
+                      if (!hasAccess) {
+                        final unlocked = await Navigator.of(context).push<bool>(
+                          playfulRoute(
+                            page: PaymentCheckoutPage(
+                              plans: widget.plans,
+                              homeLanguage: widget.homeLanguage,
+                            ),
+                          ),
+                        );
+                        if (unlocked != true || !context.mounted) return;
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        AppToast.error(
+                          context,
+                          widget.t.couldNotLoadLearningContent,
+                        );
+                      }
+                      return;
+                    }
+                  }
+                  if (!context.mounted) return;
+                  StoryItem readableStory;
+                  try {
+                    readableStory = await repository.openStory(story);
+                  } catch (_) {
+                    if (context.mounted) {
+                      AppToast.error(
+                        context,
+                        widget.t.couldNotLoadLearningContent,
+                      );
+                    }
+                    return;
+                  }
+                  if (!context.mounted) return;
                   await Navigator.of(context).push<bool>(
                     playfulRoute(
                       page: StoryReaderPage(
-                        story: story,
+                        story: readableStory,
                         homeLanguage: widget.homeLanguage,
                       ),
                     ),
                   );
+                  repository.progress.refresh(widget.homeLanguage);
                   if (!mounted) return;
                   setState(() {
                     _storyFuture = _nextStory();

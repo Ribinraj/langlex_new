@@ -40,15 +40,15 @@ const unreadCount = async (userId) => {
   return Number(rows[0]?.count || 0);
 };
 
-const listForUser = async ({ userId, limit = 30 }) => {
-  const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 100);
-  const [rows] = await pool.execute(
+const listForUser = async ({ userId, page = 1, limit = 20 }) => {
+  const paging = require('../../shared/utils/pagination').pagination({ page, limit });
+  const [rows] = await pool.query(
     `SELECT ${notificationColumns}
      FROM notifications
      WHERE user_id = ?
      ORDER BY created_at DESC, id DESC
-     LIMIT ${safeLimit}`,
-    [userId],
+     LIMIT ? OFFSET ?`,
+    [userId, paging.limit, paging.offset],
   );
   return rows;
 };
@@ -84,6 +84,35 @@ const markAllRead = async (userId) => {
   return result.affectedRows;
 };
 
+const listTargets = async ({ userId } = {}) => {
+  const params = [];
+  let whereSql = '';
+
+  if (userId) {
+    whereSql = 'WHERE id = ?';
+    params.push(userId);
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT id, push_token
+     FROM users
+     ${whereSql}
+     ORDER BY id`,
+    params,
+  );
+  return rows;
+};
+
+const clearPushToken = async (pushToken) => {
+  const [result] = await pool.execute(
+    `UPDATE users
+     SET push_token = NULL, updated_at = CURRENT_TIMESTAMP
+     WHERE push_token = ?`,
+    [pushToken],
+  );
+  return result.affectedRows;
+};
+
 module.exports = {
   create,
   countForUser,
@@ -92,4 +121,6 @@ module.exports = {
   findById,
   markRead,
   markAllRead,
+  listTargets,
+  clearPushToken,
 };

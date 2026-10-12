@@ -30,11 +30,15 @@ class AuthOtpSent extends AuthState {
     required this.mobileNumber,
     this.resendAfterSeconds = 30,
     this.isResend = false,
+    this.displayCode,
+    this.expiresAt,
   });
 
   final String mobileNumber;
   final int resendAfterSeconds;
   final bool isResend;
+  final String? displayCode;
+  final DateTime? expiresAt;
 }
 
 class AuthSocialRegistrationRequired extends AuthState {
@@ -62,5 +66,10 @@ class AuthUnauthenticated extends AuthState {
 class AuthError extends AuthState {
   const AuthError(this.message);
 
+  final String message;
+}
+
+class AuthSessionEnded extends AuthUnauthenticated {
+  const AuthSessionEnded(this.message);
   final String message;
 }

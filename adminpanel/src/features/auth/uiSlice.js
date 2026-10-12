@@ -1,7 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit'
 
 const initialState = {
-  mode: localStorage.getItem('langlex_admin_mode') || 'light',
+  mode:
+    localStorage.getItem('langlex_admin_mode') === 'light' ? 'light' : 'dark',
 }
 
 const uiSlice = createSlice({

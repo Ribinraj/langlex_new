@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
@@ -87,10 +89,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isCompleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save story progress. Please try again.'),
-        ),
+      AppToast.error(
+        context,
+        'Could not save story progress. Please try again.',
       );
     }
   }
@@ -120,17 +121,18 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(
-        title: Text(t.story),
-        actions: [
-          IconButton(
-            onPressed: _restartReading,
-            tooltip: t.restartPractice,
-            icon: const Icon(Icons.replay_rounded),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
+
+      body: FlowScrollView(
+        header: FlowPageHeader(
+          title: t.story,
+          actions: [
+            IconButton(
+              onPressed: _restartReading,
+              tooltip: t.restartPractice,
+              icon: const Icon(Icons.replay_rounded),
+            ),
+          ],
+        ),
         controller: _scrollController,
         padding: ResponsiveUtils.pagePadding(
           context,
@@ -207,49 +209,41 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     const SizedBox(height: 18),
                     LearningAccessPill(access: story.access),
                     const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Appcolors.ksoftPrimarySurface,
-                        borderRadius: BorderRadius.circular(20),
+                    for (final section
+                        in story.sections.isEmpty
+                            ? [
+                                StorySection(
+                                  text: story.text,
+                                  imagePath: story.imagePath,
+                                  audioPath: story.audioPath,
+                                ),
+                              ]
+                            : story.sections) ...[
+                      if (section.imagePath.isNotEmpty &&
+                          section.imagePath != story.imagePath)
+                        LearningMediaImage(
+                          path: section.imagePath,
+                          accent: Appcolors.kmetricInventory,
+                          height: 190,
+                          width: double.infinity,
+                        ),
+                      if (section.audioPath.isNotEmpty)
+                        LearningAudioButton(
+                          path: section.audioPath,
+                          filled: true,
+                          tooltip: t.playStory,
+                        ),
+                      const SizedBox(height: 12),
+                      ResponsiveText(
+                        section.text,
+                        fontSize: 17,
+                        weight: FontWeight.w700,
+                        color: Appcolors.ktextdark,
+                        height: 1.55,
+                        overflow: TextOverflow.visible,
                       ),
-                      child: Row(
-                        children: [
-                          LearningAudioButton(
-                            path: story.audioPath,
-                            filled: true,
-                            tooltip: t.playStory,
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: LinearProgressIndicator(
-                              value: 0,
-                              minHeight: 8,
-                              backgroundColor: Appcolors.kwhitecolor,
-                              valueColor: AlwaysStoppedAnimation(
-                                Appcolors.kprimarycolor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ResponsiveText(
-                            story.audioPath.isEmpty ? t.noAudio : t.audio,
-                            fontSize: 12,
-                            weight: FontWeight.w900,
-                            color: Appcolors.kprimarycolor,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    ResponsiveText(
-                      story.text,
-                      fontSize: 17,
-                      weight: FontWeight.w700,
-                      color: Appcolors.ktextdark,
-                      height: 1.55,
-                      overflow: TextOverflow.visible,
-                    ),
+                      const SizedBox(height: 22),
+                    ],
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,

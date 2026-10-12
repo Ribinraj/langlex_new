@@ -12,12 +12,14 @@ const authenticate = async (req, _res, next) => {
     }
 
     const payload = verifyToken(token);
+    if (payload.type === 'admin') throw new ApiError('A learner session is required',403);
     const user = await userRepository.findById(payload.sub);
 
     if (!user) {
       throw new ApiError('Invalid authentication token', 401);
     }
 
+    require('../../../application/auth/accountAccess')(user);
     req.user = user;
     return next();
   } catch (error) {

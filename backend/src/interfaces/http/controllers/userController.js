@@ -1,6 +1,5 @@
 const userService = require('../../../application/user/userService');
 const contentProgressService = require('../../../application/learning/contentProgressService');
-const dailyGoalService = require('../../../application/learning/dailyGoalService');
 const learningSetupService = require('../../../application/learning/learningSetupService');
 
 const getProfile = async (req, res) => {
@@ -10,6 +9,11 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   const user = await userService.updateProfile(req.user, req.body);
+  res.json({ user });
+};
+
+const updatePushToken = async (req, res) => {
+  const user = await userService.updatePushToken(req.user, req.body.push_token);
   res.json({ user });
 };
 
@@ -24,19 +28,6 @@ const saveLearningSetup = async (req, res) => {
     req.body,
   );
   res.json({ learning_setup: learningSetup });
-};
-
-const getDailyGoal = async (req, res) => {
-  const dailyGoal = await dailyGoalService.getDailyGoal(
-    req.user,
-    req.query.date,
-  );
-  res.json({ daily_goal: dailyGoal });
-};
-
-const recordDailyProgress = async (req, res) => {
-  const dailyGoal = await dailyGoalService.recordDailyProgress(req.user, req.body);
-  res.json({ daily_goal: dailyGoal });
 };
 
 const getContentProgress = async (req, res) => {
@@ -65,10 +56,9 @@ const restartContentProgress = async (req, res) => {
 module.exports = {
   getProfile,
   updateProfile,
+  updatePushToken,
   getLearningSetup,
   saveLearningSetup,
-  getDailyGoal,
-  recordDailyProgress,
   getContentProgress,
   saveContentProgress,
   recordContentProgressItem,

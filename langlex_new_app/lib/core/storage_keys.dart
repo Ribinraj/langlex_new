@@ -1,4 +1,5 @@
 class StorageKeys {
+  static const soundEffectsEnabled = 'sound_effects_enabled';
   static const accessToken = 'access_token';
   static const refreshToken = 'refresh_token';
   static const isLoggedIn = 'is_logged_in';

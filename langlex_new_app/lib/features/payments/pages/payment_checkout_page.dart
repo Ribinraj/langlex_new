@@ -1,3 +1,7 @@
+import 'package:langlex_new_app/features/learning/learning_repo.dart';
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/api_exception.dart';
@@ -60,9 +64,8 @@ class _PaymentCheckoutPageState extends State<PaymentCheckoutPage> {
 
       if (!mounted) return;
       setState(() => _message = t.dummyPaymentComplete);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(t.subscriptionActivated)));
+      context.read<LearningRepository>().progress.refresh(widget.homeLanguage);
+      AppToast.success(context, t.subscriptionActivated);
       Navigator.of(context).pop(true);
     } on ApiException catch (error) {
       setState(() => _message = error.message);
@@ -80,8 +83,9 @@ class _PaymentCheckoutPageState extends State<PaymentCheckoutPage> {
 
     return Scaffold(
       backgroundColor: Appcolors.kscreenWarmBackground,
-      appBar: AppBar(title: Text(t.upgradePlanPage)),
-      body: SingleChildScrollView(
+
+      body: FlowScrollView(
+        header: FlowPageHeader(title: t.upgradePlanPage),
         padding: ResponsiveUtils.pagePadding(
           context,
           mobileHorizontalPercent: 6,
@@ -113,7 +117,12 @@ class _PaymentCheckoutPageState extends State<PaymentCheckoutPage> {
               ),
               ResponsiveSizedBox.height(2.4),
               if (paidPlans.isEmpty)
-                _CheckoutStatus(message: t.noPaidPlans)
+                AppEmptyState(
+                  kind: EmptyStateKind.plans,
+                  title: t.nothingHereYet,
+                  message: t.noPaidPlans,
+                  compact: true,
+                )
               else
                 for (final plan in paidPlans) ...[
                   _PlanCard(

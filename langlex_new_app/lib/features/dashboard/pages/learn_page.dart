@@ -1,4 +1,19 @@
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_bloc.dart';
+import 'package:langlex_new_app/features/authentication/blocs/auth_bloc/auth_state.dart';
+import 'package:langlex_new_app/features/progress/progress_widgets.dart';
+import 'package:langlex_new_app/core/widgets/app_empty_state.dart';
+import 'package:langlex_new_app/core/widgets/app_shimmer.dart';
+import 'package:langlex_new_app/features/learning/widgets/content_shimmers.dart';
+import 'package:langlex_new_app/features/learning/widgets/practice_catalog_header.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
+import 'dart:async';
+import 'package:langlex_new_app/features/learning/widgets/alphabet_catalog_widgets.dart';
+import 'package:langlex_new_app/features/learning/widgets/quiz_catalog_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:langlex_new_app/features/learning/learning_repo.dart';
+import 'package:langlex_new_app/features/learning/widgets/paged_learning_list.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/search_results_shimmer.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,170 +22,493 @@ import 'package:langlex_new_app/core/app_localizations.dart';
 import 'package:langlex_new_app/core/colors.dart';
 import 'package:langlex_new_app/core/constants.dart';
 import 'package:langlex_new_app/core/responsiveutils.dart';
-import 'package:langlex_new_app/features/dashboard/widgets/dashboard_page_layout.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_bloc.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_event.dart';
 import 'package:langlex_new_app/features/learning/blocs/learning_bloc/learning_state.dart';
 import 'package:langlex_new_app/features/learning/models/learning_models.dart';
 import 'package:langlex_new_app/features/learning/pages/course_detail_page.dart';
+import 'package:langlex_new_app/features/learning/pages/practice_catalog_page.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/dashboard_destination.dart';
 import 'package:langlex_new_app/features/learning/pages/story_reader_page.dart';
 import 'package:langlex_new_app/features/learning/widgets/learning_widgets.dart';
 import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 import 'package:langlex_new_app/features/payments/pages/payment_checkout_page.dart';
 
 class LearnPage extends StatefulWidget {
-  const LearnPage({super.key});
+  const LearnPage({
+    super.key,
+    this.storiesOnly = false,
+    this.searchMode = false,
+  });
+
+  final bool storiesOnly;
+  final bool searchMode;
 
   @override
   State<LearnPage> createState() => _LearnPageState();
 }
 
 class _LearnPageState extends State<LearnPage> {
+  final _searchController = TextEditingController();
   String _query = '';
-  String _selectedFilter = 'All';
+  String _resource = 'courses';
+  bool get _showStories =>
+      widget.storiesOnly || (widget.searchMode && _resource == 'stories');
+  bool get _showCourses =>
+      !widget.storiesOnly && (!widget.searchMode || _resource == 'courses');
+  String _title(AppLocalizations t) => widget.searchMode
+      ? t.search
+      : _showStories
+      ? t.stories
+      : t.knowledge;
+  Timer? _searchDebounce;
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _search(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) setState(() => _query = value);
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    FocusScope.of(context).unfocus();
+    setState(() => _query = '');
+  }
+
+  Widget _emptyLibrary(AppLocalizations t) {
+    final searching = _query.trim().isNotEmpty;
+    final canGoBack = Navigator.of(context).canPop();
+    return AppEmptyState(
+      kind: searching
+          ? EmptyStateKind.search
+          : _showStories
+          ? EmptyStateKind.stories
+          : _resource == 'alphabets'
+          ? EmptyStateKind.alphabets
+          : _resource == 'quizzes'
+          ? EmptyStateKind.quizzes
+          : EmptyStateKind.lessons,
+      title: searching ? t.noResultsTitle : t.nothingHereYet,
+      message: searching
+          ? t.emptySearchHint
+          : _showStories
+          ? t.noStoriesAvailable
+          : _resource == 'alphabets'
+          ? t.noAlphabetRows
+          : _resource == 'quizzes'
+          ? t.noQuizQuestions
+          : t.noLessonsFound,
+      actionLabel: searching
+          ? t.clearSearch
+          : canGoBack
+          ? t.goBack
+          : null,
+      onAction: searching
+          ? _clearSearch
+          : canGoBack
+          ? () => Navigator.of(context).maybePop()
+          : null,
+      actionIcon: searching
+          ? Icons.restart_alt_rounded
+          : Icons.arrow_back_rounded,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<LearningBloc, LearningState>(
-      builder: (context, state) {
-        const fallback = AppLocalizations('English');
-        if (state is LearningLoading || state is LearningInitial) {
-          return DashboardPageLayout(
-            children: [
-              DashboardHeader(
-                title: fallback.library,
-                subtitle: fallback.librarySubtitle,
-              ),
-              const SizedBox(height: 24),
-              _LibraryStatusPanel(message: fallback.loadingLibrary),
-            ],
-          );
-        }
-
-        if (state is LearningError) {
-          return DashboardPageLayout(
-            children: [
-              DashboardHeader(
-                title: fallback.library,
-                subtitle: fallback.librarySubtitle,
-              ),
-              ResponsiveSizedBox.height(2.4),
-              _LibraryStatusPanel(
-                message: fallback.couldNotLoadLearningContent,
-                actionLabel: fallback.retry,
-                onAction: () => context.read<LearningBloc>().add(
-                  const LoadLearningCatalogEvent(forceRefresh: true),
+    final state = context.watch<LearningBloc>().state;
+    final t = AppLocalizations(
+      state is LearningLoaded ? state.catalog.setup.primaryLanguage : 'English',
+    );
+    return DashboardDestination(
+      title: _title(t),
+      backgroundGradient: widget.searchMode || !widget.storiesOnly
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: [0, .32, .62, 1],
+              colors: [
+                Appcolors.ksearchBackgroundTop,
+                Appcolors.khomeBackgroundTop,
+                Appcolors.khomeBackgroundMiddle,
+                Appcolors.khomeBackgroundBottom,
+              ],
+            )
+          : null,
+      child: BlocBuilder<LearningBloc, LearningState>(
+        builder: (context, state) {
+          const fallback = AppLocalizations('English');
+          if (state is LearningLoading || state is LearningInitial) {
+            return FlowScrollView(
+              header: _libraryHeader(t),
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Padding(
+                padding: ResponsiveUtils.pagePadding(
+                  context,
+                  mobileHorizontalPercent: 6,
+                  tabletHorizontal: 42,
+                  desktopHorizontal: 56,
+                ).copyWith(top: 0),
+                child: ResponsiveUtils.constrainWidth(
+                  context: context,
+                  maxWidth: 680,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_showCourses && !widget.searchMode) ...[
+                        AppShimmer(
+                          label: fallback.loadingLibrary,
+                          child: const PracticeModeShimmerCard(),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      CatalogShimmer(
+                        label: fallback.loadingLibrary,
+                        kind: _showStories
+                            ? CatalogSkeleton.stories
+                            : _resource == 'alphabets'
+                            ? CatalogSkeleton.alphabets
+                            : _resource == 'quizzes'
+                            ? CatalogSkeleton.quizzes
+                            : CatalogSkeleton.courses,
+                        showHeading: _showCourses,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          );
-        }
+            );
+          }
 
-        final catalog = (state as LearningLoaded).catalog;
-        return _buildLoadedLibrary(context, catalog);
-      },
+          if (state is LearningError) {
+            return FlowScrollView(
+              header: widget.searchMode
+                  ? FlowPageHeader(title: _title(t), showBack: false)
+                  : PracticeCatalogHeader(
+                      title: _title(t),
+                      subtitle: widget.storiesOnly
+                          ? t.chooseStory
+                          : t.playAndDiscover,
+                      artwork: widget.storiesOnly
+                          ? 'assets/icons/animal.svg'
+                          : 'assets/images/knowledge-fox.png',
+                      usePageBackground: !widget.storiesOnly,
+                      maxWidth: 720,
+                    ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  ResponsiveSizedBox.height(2.4),
+                  _LibraryStatusPanel(
+                    message: fallback.couldNotLoadLearningContent,
+                    actionLabel: fallback.retry,
+                    onAction: () => context.read<LearningBloc>().add(
+                      const LoadLearningCatalogEvent(forceRefresh: true),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final catalog = (state as LearningLoaded).catalog;
+          return _buildLoadedLibrary(context, catalog);
+        },
+      ),
     );
   }
 
   Widget _buildLoadedLibrary(BuildContext context, LearningCatalog catalog) {
     final t = AppLocalizations(catalog.setup.primaryLanguage);
-    final lowerQuery = _query.trim().toLowerCase();
-    final courses = catalog.courses.where((course) {
-      final matchesQuery =
-          lowerQuery.isEmpty ||
-          course.title.toLowerCase().contains(lowerQuery) ||
-          course.category.toLowerCase().contains(lowerQuery) ||
-          course.language.toLowerCase().contains(lowerQuery);
-      final matchesFilter =
-          _selectedFilter == 'All' ||
-          course.language == _selectedFilter ||
-          course.category == _selectedFilter;
-      return matchesQuery && matchesFilter;
-    }).toList();
-    final filters = [
-      'All',
-      ...catalog.languages,
-      ...catalog.courses.map((course) => course.category).toSet(),
-    ];
+    final selectedLanguage = catalog.setup.learningLanguage;
+    final selectedLevel = catalog.setup.level;
+    final repository = context.read<LearningRepository>();
+    final query = <String, dynamic>{
+      'search': _query,
+      'language': selectedLanguage,
+      if (_showCourses) 'level': selectedLevel,
+    };
     final isMobile = ResponsiveUtils.isMobile(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 132),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _LibraryHeroSection(
-            t: t,
-            filters: filters,
-            selectedFilter: _selectedFilter,
-            onQueryChanged: (value) => setState(() => _query = value),
-            onFilterSelected: (filter) =>
-                setState(() => _selectedFilter = filter),
-          ),
-          const SizedBox(height: 0),
-          Padding(
-            padding: ResponsiveUtils.pagePadding(
-              context,
-              mobileHorizontalPercent: 6,
-              tabletHorizontal: 42,
-              desktopHorizontal: 56,
-            ).copyWith(top: 0),
-            child: ResponsiveUtils.constrainWidth(
-              context: context,
-              maxWidth: 680,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LibraryCoursesHeader(title: t.coursesTitle(courses.length)),
-                  ResponsiveSizedBox.height(1.2),
-                  if (courses.isEmpty)
-                    _EmptyLibraryState(t: t)
-                  else
-                    for (final course in courses) ...[
-                      LearningCourseCard(
-                        course: course,
-                        homeLanguage: catalog.setup.primaryLanguage,
-                        onTap: () => _openCourse(
-                          context,
-                          course,
-                          catalog.plans,
-                          catalog.setup.primaryLanguage,
-                        ),
+    return FlowScrollView(
+      header: _libraryHeader(t),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: ResponsiveUtils.pagePadding(
+          context,
+          mobileHorizontalPercent: 6,
+          tabletHorizontal: 42,
+          desktopHorizontal: 56,
+        ).copyWith(top: 0),
+        child: ResponsiveUtils.constrainWidth(
+          context: context,
+          maxWidth: 680,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_showCourses && !widget.searchMode && _query.isEmpty) ...[
+                _SoundsPracticeCard(
+                  title: t.sounds,
+                  subtitle: t.listenAndSay,
+                  onTap: () => _openPractice(catalog, 'phonics'),
+                ),
+                const SizedBox(height: 24),
+              ],
+              if (_showCourses)
+                PagedLearningList<LearningCourse>(
+                  emptyState: _emptyLibrary(t),
+                  loadingIndicator: CatalogShimmer(
+                    label: t.loadingLibrary,
+                    kind: CatalogSkeleton.courses,
+                    showHeading: true,
+                  ),
+                  key: ValueKey(
+                    'courses-$_query-$selectedLanguage-$selectedLevel',
+                  ),
+                  load: (page) => repository.fetchPage(
+                    'courses',
+                    (row) => LearningCourse.fromCourseJson(
+                      row,
+                      [],
+                      alphabets: [],
+                      phonics: [],
+                    ),
+                    page: page,
+                    limit: 12,
+                    filters: query,
+                  ),
+                  builder: (context, page) => Column(
+                    children: [
+                      _LibraryCoursesHeader(
+                        title: t.exploreTopics,
+                        compact: widget.searchMode,
                       ),
-                      ResponsiveSizedBox.height(1.4),
-                    ],
-                  ResponsiveSizedBox.height(1.4),
-                  _StoriesHeader(title: t.stories),
-                  ResponsiveSizedBox.height(1),
-                  if (catalog.stories.isEmpty)
-                    _LibraryStatusPanel(message: t.noStoriesAvailable)
-                  else
-                    for (
-                      var index = 0;
-                      index < catalog.stories.length;
-                      index++
-                    ) ...[
-                      _StoryTile(
-                        story: catalog.stories[index],
-                        t: t,
-                        accent: _storyAccent(index),
-                        onTap: () => _openStory(
-                          context,
-                          catalog.stories[index],
-                          catalog.plans,
-                          catalog.setup.primaryLanguage,
+                      ResponsiveSizedBox.height(1.2),
+                      for (final course in page.items) ...[
+                        LearningCourseCard(
+                          course: course,
+                          homeLanguage: catalog.setup.primaryLanguage,
+                          onTap: () => _openCourse(
+                            context,
+                            course,
+                            catalog.plans,
+                            catalog.setup.primaryLanguage,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        ResponsiveSizedBox.height(1.4),
+                      ],
                     ],
-                  SizedBox(height: isMobile ? 4 : 18),
-                ],
-              ),
-            ),
+                  ),
+                ),
+              if (_showStories) ...[
+                PagedLearningList<StoryItem>(
+                  emptyState: _emptyLibrary(t),
+                  loadingIndicator: CatalogShimmer(
+                    label: t.loadingLibrary,
+                    kind: CatalogSkeleton.stories,
+                  ),
+                  key: ValueKey(
+                    'stories-$_query-$selectedLanguage-$selectedLevel',
+                  ),
+                  load: (page) => repository.fetchPage(
+                    'stories',
+                    StoryItem.fromJson,
+                    page: page,
+                    limit: 6,
+                    filters: query,
+                  ),
+                  builder: (context, page) => Column(
+                    children: [
+                      for (
+                        var index = 0;
+                        index < page.items.length;
+                        index++
+                      ) ...[
+                        _StoryTile(
+                          story: page.items[index],
+                          t: t,
+                          accent: _storyAccent(index),
+                          onTap: () => _openStory(
+                            context,
+                            page.items[index],
+                            catalog.plans,
+                            catalog.setup.primaryLanguage,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (widget.searchMode && !_showCourses && !_showStories)
+                PagedLearningList<Map<String, dynamic>>(
+                  emptyState: _emptyLibrary(t),
+                  loadingIndicator: SearchResultsShimmer(
+                    label: t.loadingLibrary,
+                    alphabetGrid: _resource == 'alphabets',
+                    kind: CatalogSkeleton.quizzes,
+                  ),
+                  key: ValueKey('search-$_resource-$_query-$selectedLanguage'),
+                  load: (page) => _resource == 'quizzes'
+                      ? repository.fetchQuizTopics(
+                          language: selectedLanguage,
+                          search: _query,
+                          page: page,
+                        )
+                      : repository.fetchPage(
+                          _resource,
+                          (row) => row,
+                          page: page,
+                          limit: 12,
+                          filters: {
+                            ...query,
+                            if (_resource == 'alphabets') 'view': 'letters',
+                          },
+                        ),
+                  builder: (context, page) {
+                    if (_resource == 'alphabets') {
+                      return AlphabetSearchResults(
+                        rows: page.items,
+                        total: page.total,
+                        language: catalog.setup.primaryLanguage,
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final (index, topic) in page.items.indexed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: QuizSetCard(
+                              key: ValueKey(topic['id']),
+                              topic: topic,
+                              homeLanguage: catalog.setup.primaryLanguage,
+                              index: index,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              SizedBox(height: isMobile ? 4 : 18),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  Widget _libraryHeader(AppLocalizations t) => _LibraryHeroSection(
+    searchController: _searchController,
+    searchHint: widget.searchMode
+        ? (_resource == 'alphabets' ? t.searchLetters : t.searchLearning)
+        : _showStories
+        ? t.searchStories
+        : t.searchTopics,
+    showBack: !widget.searchMode,
+    compact: widget.searchMode || !widget.storiesOnly,
+    mascotAsset: !widget.searchMode && !widget.storiesOnly
+        ? 'assets/images/knowledge-fox.png'
+        : null,
+    categories: widget.searchMode
+        ? SingleChildScrollView(
+            key: const PageStorageKey('search-category-chips'),
+            scrollDirection: Axis.horizontal,
+            primary: false,
+            child: Row(
+              children: [
+                for (final category in [
+                  ('courses', t.knowledge),
+                  ('alphabets', t.alphabets),
+                  ('stories', t.stories),
+                  ('quizzes', t.quizzesHeading),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(category.$2, maxLines: 1),
+                      labelStyle: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _resource == category.$1
+                            ? Appcolors.kwhitecolor
+                            : Appcolors.klibrarySubtitle,
+                      ),
+                      selectedColor: Appcolors.ksearchSelectedChip,
+                      backgroundColor: Appcolors.kwhitecolor.withValues(
+                        alpha: .65,
+                      ),
+                      checkmarkColor: Appcolors.kwhitecolor,
+                      side: BorderSide(
+                        color: _resource == category.$1
+                            ? Appcolors.ksearchSelectedChip
+                            : Appcolors.kwhitecolor.withValues(alpha: .8),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      selected: _resource == category.$1,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() => _resource = category.$1);
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : null,
+    title: _title(t),
+    subtitle: _showStories ? t.chooseStory : t.playAndDiscover,
+    onQueryChanged: _search,
+  );
+
+  void _openPractice(LearningCatalog catalog, String resource) {
+    Navigator.of(context).push(
+      playfulRoute(
+        page: PracticeCatalogPage(
+          resource: resource,
+          language: catalog.setup.learningLanguage,
+          homeLanguage: catalog.setup.primaryLanguage,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _canOpenPremium(
+    BuildContext context,
+    List<SubscriptionPlan> plans,
+    String language,
+  ) async {
+    try {
+      if (await context.read<LearningRepository>().hasPremiumAccess()) {
+        return context.mounted;
+      }
+      if (!context.mounted) return false;
+      final unlocked = await Navigator.of(context).push<bool>(
+        playfulRoute(
+          page: PaymentCheckoutPage(plans: plans, homeLanguage: language),
+        ),
+      );
+      return unlocked == true && context.mounted;
+    } catch (_) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          AppLocalizations(language).couldNotLoadLearningContent,
+        );
+      }
+      return false;
+    }
   }
 
   Future<void> _openCourse(
@@ -179,24 +517,23 @@ class _LearnPageState extends State<LearnPage> {
     List<SubscriptionPlan> plans,
     String homeLanguage,
   ) async {
-    if (course.access == LearningAccess.premium) {
-      final unlocked = await Navigator.of(context).push<bool>(
-        playfulRoute(
-          page: PaymentCheckoutPage(plans: plans, homeLanguage: homeLanguage),
-        ),
-      );
-      if (unlocked != true || !context.mounted) return;
+    if (course.access == LearningAccess.premium &&
+        !await _canOpenPremium(context, plans, homeLanguage)) {
+      return;
     }
 
     if (!context.mounted) {
       return;
     }
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       playfulRoute(
         page: CourseDetailPage(course: course, homeLanguage: homeLanguage),
       ),
     );
+    if (context.mounted) {
+      context.read<LearningRepository>().progress.refresh(homeLanguage);
+    }
   }
 
   Future<void> _openStory(
@@ -205,305 +542,290 @@ class _LearnPageState extends State<LearnPage> {
     List<SubscriptionPlan> plans,
     String homeLanguage,
   ) async {
-    if (story.access == LearningAccess.premium) {
-      final unlocked = await Navigator.of(context).push<bool>(
-        playfulRoute(
-          page: PaymentCheckoutPage(plans: plans, homeLanguage: homeLanguage),
-        ),
-      );
-      if (unlocked != true || !context.mounted) return;
+    if (story.access == LearningAccess.premium &&
+        !await _canOpenPremium(context, plans, homeLanguage)) {
+      return;
     }
 
     if (!context.mounted) {
       return;
     }
 
-    Navigator.of(context).push(
+    StoryItem readableStory;
+    try {
+      readableStory = await context.read<LearningRepository>().openStory(story);
+    } catch (_) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          AppLocalizations(homeLanguage).couldNotLoadLearningContent,
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
       playfulRoute(
-        page: StoryReaderPage(story: story, homeLanguage: homeLanguage),
+        page: StoryReaderPage(story: readableStory, homeLanguage: homeLanguage),
       ),
     );
+    if (context.mounted) {
+      context.read<LearningRepository>().progress.refresh(homeLanguage);
+    }
   }
+}
+
+class _SoundsPracticeCard extends StatelessWidget {
+  const _SoundsPracticeCard({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    child: Material(
+      color: Appcolors.kauthSoftGreen,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Appcolors.khomeBackgroundBottom,
+              Appcolors.khomeBackgroundMiddle,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Appcolors.kwhitecolor.withValues(alpha: .8),
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                ExcludeSemantics(
+                  child: Container(
+                    width: 52,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Appcolors.ksearchSelectedChip,
+                          Appcolors.khomeKnowledgeInk,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.graphic_eq_rounded,
+                      color: Appcolors.kwhitecolor,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 19,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          color: Appcolors.khomeKnowledgeInk,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color: Appcolors.klibrarySubtitle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const ExcludeSemantics(
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Appcolors.ksearchSelectedChip,
+                    size: 22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _LibraryHeroSection extends StatelessWidget {
   const _LibraryHeroSection({
-    required this.t,
-    required this.filters,
-    required this.selectedFilter,
+    required this.searchController,
+    required this.searchHint,
+    required this.title,
+    required this.subtitle,
     required this.onQueryChanged,
-    required this.onFilterSelected,
+    this.showBack = true,
+    this.categories,
+    this.compact = false,
+    this.mascotAsset,
   });
-
-  final AppLocalizations t;
-  final List<String> filters;
-  final String selectedFilter;
+  final TextEditingController searchController;
+  final String? mascotAsset;
+  final String searchHint;
+  final String title;
+  final String subtitle;
   final ValueChanged<String> onQueryChanged;
-  final ValueChanged<String> onFilterSelected;
+  final bool showBack;
+  final Widget? categories;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
+    if (showBack) {
+      return PracticeCatalogHeader(
+        title: title,
+        subtitle: subtitle,
+        artwork: mascotAsset ?? 'assets/icons/animal.svg',
+        artworkAboveFooter: true,
+        usePageBackground: compact,
+        maxWidth: 720,
+        footer: _LibrarySearchField(
+          controller: searchController,
+          hintText: searchHint,
+          onChanged: onQueryChanged,
+        ),
+      );
+    }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final compact = width < 390;
-        final contentWidth = width > 680 ? 680.0 : width;
-        final sideInset = ((width - contentWidth) / 2) + (compact ? 22 : 28);
-        final heroHeight = topInset + (compact ? 246.0 : 264.0);
-        final pencilWidth = compact ? 88.0 : 108.0;
-
-        return SizedBox(
-          height: heroHeight,
-          width: double.infinity,
-          child: Stack(
+    final controls = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (compact)
+          Stack(
             clipBehavior: Clip.none,
             children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Appcolors.klibrarySkyTop,
-                        Appcolors.klibrarySkyMiddle,
-                        Appcolors.klibrarySkyBottom,
-                      ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 40),
+                  _LibrarySearchField(
+                    controller: searchController,
+                    hintText: searchHint,
+                    onChanged: onQueryChanged,
+                  ),
+                ],
+              ),
+              Positioned(
+                bottom: 46,
+                right: 18,
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: SvgPicture.asset(
+                      'assets/icons/animal.svg',
+                      width: 80,
+                      height: 80,
                     ),
                   ),
                 ),
               ),
-              Positioned(
-                left: -56,
-                bottom: 102,
-                child: _LibraryCloudAsset(width: 136, opacity: 0.96),
-              ),
-              Positioned(
-                right: -54,
-                bottom: 108,
-                child: _LibraryCloudAsset(width: 142, opacity: 0.98),
-              ),
-              Positioned(
-                right: sideInset + pencilWidth + 8,
-                top: topInset + 46,
-                child: _LibraryCloudAsset(width: 56, opacity: 0.52),
-              ),
-              Positioned(
-                right: sideInset - 6,
-                top: topInset + 20,
-                child: SvgPicture.asset(
-                  'assets/icons/animal.svg',
-                  width: pencilWidth,
-                  height: compact ? 108 : 130,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              Positioned(
-                right: sideInset - 8,
-                top: topInset + 20,
-                child: _LibrarySparkle(size: compact ? 12 : 14),
-              ),
-              Positioned(
-                left: sideInset,
-                top: topInset + 12,
-                right: sideInset + pencilWidth + 16,
-                child: Column(
+            ],
+          )
+        else
+          _LibrarySearchField(
+            controller: searchController,
+            hintText: searchHint,
+            onChanged: onQueryChanged,
+          ),
+        if (categories != null) ...[const SizedBox(height: 10), categories!],
+      ],
+    );
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Padding(
+                // Match the Profile page's title insets and alignment.
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        t.library,
-                        maxLines: 1,
-                        style: GoogleFonts.montserrat(
-                          fontSize: compact ? 28 : 34,
-                          fontWeight: FontWeight.w900,
-                          color: Appcolors.klibraryTitle,
-                          height: 0.98,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 26,
+                            height: 1.15,
+                            fontWeight: FontWeight.w900,
+                            color: Appcolors.klibraryTitle,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    ResponsiveText(
-                      t.librarySubtitle,
-                      fontSize: compact ? 14.5 : 16,
-                      weight: FontWeight.w600,
-                      color: Appcolors.klibrarySubtitle,
-                      overflow: TextOverflow.visible,
-                    ),
+                    // Keep the title clear of the owl perched below it.
+                    const SizedBox(width: 100),
                   ],
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 48,
-                height: 98,
-                child: CustomPaint(painter: _LibraryCloudBandPainter()),
-              ),
-              Positioned(
-                left: sideInset - 10,
-                right: sideInset - 10,
-                bottom: 28,
-                child: _LibraryControlPanel(
-                  t: t,
-                  filters: filters,
-                  selectedFilter: selectedFilter,
-                  onQueryChanged: onQueryChanged,
-                  onFilterSelected: onFilterSelected,
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: -1,
-                height: 42,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Appcolors.kscreenWarmBackground.withValues(alpha: 0),
-                          Appcolors.kscreenWarmBackground,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _LibraryCloudAsset extends StatelessWidget {
-  const _LibraryCloudAsset({required this.width, required this.opacity});
-
-  final double width;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      'assets/icons/cloud.svg',
-      width: width,
-      fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(
-        Appcolors.kwhitecolor.withValues(alpha: opacity),
-        BlendMode.srcIn,
+          Padding(
+            padding: ResponsiveUtils.pagePadding(
+              context,
+              mobileHorizontalPercent: 6,
+              tabletHorizontal: 42,
+              desktopHorizontal: 56,
+            ).copyWith(top: 0, bottom: 16),
+            child: ResponsiveUtils.constrainWidth(
+              context: context,
+              maxWidth: 680,
+              child: controls,
+            ),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _LibrarySparkle extends StatelessWidget {
-  const _LibrarySparkle({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(
-      Icons.auto_awesome_rounded,
-      size: size,
-      color: Appcolors.klibrarySparkle.withValues(alpha: 0.92),
-    );
-  }
-}
-
-class _LibraryCloudBandPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Appcolors.kscreenWarmBackground.withValues(alpha: 0.98);
-    final path = Path()
-      ..moveTo(0, size.height * 0.54)
-      ..cubicTo(
-        size.width * 0.12,
-        size.height * 0.08,
-        size.width * 0.26,
-        size.height * 0.78,
-        size.width * 0.42,
-        size.height * 0.38,
-      )
-      ..cubicTo(
-        size.width * 0.55,
-        size.height * 0.02,
-        size.width * 0.68,
-        size.height * 0.78,
-        size.width * 0.82,
-        size.height * 0.34,
-      )
-      ..cubicTo(
-        size.width * 0.91,
-        size.height * 0.06,
-        size.width,
-        size.height * 0.32,
-        size.width,
-        size.height * 0.18,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _LibraryControlPanel extends StatelessWidget {
-  const _LibraryControlPanel({
-    required this.t,
-    required this.filters,
-    required this.selectedFilter,
-    required this.onQueryChanged,
-    required this.onFilterSelected,
-  });
-
-  final AppLocalizations t;
-  final List<String> filters;
-  final String selectedFilter;
-  final ValueChanged<String> onQueryChanged;
-  final ValueChanged<String> onFilterSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _LibrarySearchField(hintText: t.searchHint, onChanged: onQueryChanged),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final filter in filters) ...[
-                _LibraryFilterPill(
-                  label: filter == 'All' ? t.all : filter,
-                  selected: selectedFilter == filter,
-                  onTap: () => onFilterSelected(filter),
-                ),
-                const SizedBox(width: 13),
-              ],
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
 
 class _LibrarySearchField extends StatelessWidget {
-  const _LibrarySearchField({required this.hintText, required this.onChanged});
+  const _LibrarySearchField({
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
 
   final String hintText;
   final ValueChanged<String> onChanged;
@@ -528,6 +850,7 @@ class _LibrarySearchField extends StatelessWidget {
         ],
       ),
       child: TextField(
+        controller: controller,
         onChanged: onChanged,
         style: GoogleFonts.montserrat(
           color: Appcolors.ktextdark,
@@ -562,89 +885,36 @@ class _LibrarySearchField extends StatelessWidget {
   }
 }
 
-class _LibraryFilterPill extends StatelessWidget {
-  const _LibraryFilterPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+class _LibraryCoursesHeader extends StatelessWidget {
+  const _LibraryCoursesHeader({required this.title, this.compact = false});
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String title;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedScale(
-      duration: AppMotion.quick,
-      curve: AppMotion.playfulCurve,
-      scale: selected && !motionDisabled(context) ? 1.03 : 1,
-      child: Material(
-        color: Appcolors.ktransparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 78),
-            child: Ink(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              decoration: BoxDecoration(
-                gradient: selected
-                    ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Appcolors.klibraryFilterSelectedTop,
-                          Appcolors.klibraryFilterSelectedBottom,
-                        ],
-                      )
-                    : null,
-                color: selected ? null : Appcolors.kwhitecolor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: selected
-                      ? Appcolors.kwhitecolor.withValues(alpha: 0.36)
-                      : Appcolors.klibraryFilterBorder,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: selected
-                        ? Appcolors.klibraryFilterSelectedBottom.withValues(
-                            alpha: 0.28,
-                          )
-                        : Appcolors.kblackcolor.withValues(alpha: 0.06),
-                    blurRadius: selected ? 11 : 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: ResponsiveText(
-                  label,
-                  fontSize: 13.5,
-                  weight: FontWeight.w900,
-                  color: selected
-                      ? Appcolors.kwhitecolor
-                      : Appcolors.kdashboardText,
-                  maxLines: 1,
-                ),
+    if (compact) {
+      return Row(
+        children: [
+          SvgPicture.asset(
+            'assets/icons/online-course.svg',
+            width: 28,
+            height: 28,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.montserrat(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Appcolors.ktextdark,
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LibraryCoursesHeader extends StatelessWidget {
-  const _LibraryCoursesHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
+        ],
+      );
+    }
     return SizedBox(
       height: 70,
       child: Stack(
@@ -744,106 +1014,6 @@ Color _storyAccent(int index) {
   return _storyAccentColors[index % _storyAccentColors.length];
 }
 
-class _StoriesHeader extends StatelessWidget {
-  const _StoriesHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 72,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            top: 9,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 84,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Appcolors.ksoftCoralSurface,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                ),
-                Positioned(
-                  left: -2,
-                  top: -9,
-                  child: SvgPicture.asset(
-                    KidsLearningAssets.openBookIcon,
-                    width: 78,
-                    height: 58,
-                    fit: BoxFit.contain,
-                    colorFilter: const ColorFilter.mode(
-                      Appcolors.kmetricInventory,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  top: -5,
-                  child: Icon(
-                    Icons.auto_awesome_rounded,
-                    color: Appcolors.kheroStartButtonBottom,
-                    size: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 104,
-            right: 132,
-            top: 19,
-            child: ResponsiveText(
-              title,
-              fontSize: 25,
-              weight: FontWeight.w900,
-              color: Appcolors.ktextdark,
-              maxLines: 1,
-            ),
-          ),
-          Positioned(
-            right: -4,
-            top: 2,
-            child: SizedBox(
-              width: 118,
-              height: 76,
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  Positioned(
-                    bottom: 0,
-                    child: SvgPicture.asset(
-                      KidsLearningAssets.cloudIcon,
-                      width: 118,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    child: SvgPicture.asset(
-                      KidsLearningAssets.starIcon,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StoryTile extends StatelessWidget {
   const _StoryTile({
     required this.story,
@@ -910,13 +1080,34 @@ class _StoryTile extends StatelessWidget {
                         color: Appcolors.kdashboardMutedText,
                         maxLines: 1,
                       ),
+                      TopicProgressBadge(
+                        type: 'story',
+                        contentKey: 'story-${story.id}',
+                        language: story.language,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
-                _StoryGoButton(
-                  accent: accent,
-                  locked: story.access != LearningAccess.free,
+                Builder(
+                  builder: (context) {
+                    final store = context.read<LearningRepository?>()?.progress;
+                    final auth = context.watch<AuthBloc?>()?.state;
+                    final signedIn =
+                        auth is AuthAuthenticated || auth is AuthOtpVerified;
+                    Widget button() => _StoryGoButton(
+                      accent: accent,
+                      locked: story.access == LearningAccess.premium
+                          ? store?.overview?.premium != true
+                          : story.access == LearningAccess.login && !signedIn,
+                    );
+                    return store == null
+                        ? button()
+                        : AnimatedBuilder(
+                            animation: store,
+                            builder: (context, _) => button(),
+                          );
+                  },
                 ),
               ],
             ),
@@ -1025,42 +1216,6 @@ class _StoryGoButton extends StatelessWidget {
               color: accent,
               size: locked ? 22 : 34,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyLibraryState extends StatelessWidget {
-  const _EmptyLibraryState({required this.t});
-
-  final AppLocalizations t;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Appcolors.kwhitecolor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Appcolors.kauthDivider),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            color: Appcolors.kdashboardMutedIcon,
-            size: 34,
-          ),
-          SizedBox(height: 10),
-          ResponsiveText(
-            t.noMatchingLessons,
-            fontSize: 15,
-            weight: FontWeight.w900,
-            color: Appcolors.ktextdark,
-            overflow: TextOverflow.visible,
           ),
         ],
       ),

@@ -1,23 +1,26 @@
 import {
-  ArticleRounded,
-  CardMembershipRounded,
-  DashboardRounded,
+  HistoryRounded,
+  PermMediaOutlined,
+  CardMembershipOutlined,
+  SpaceDashboardOutlined,
   DarkModeRounded,
   LightModeRounded,
   LogoutRounded,
   MenuRounded,
-  NotificationsRounded,
-  PaymentsRounded,
-  PeopleRounded,
-  SchoolRounded,
-  SettingsRounded,
+  NotificationsNoneRounded,
+  PaymentsOutlined,
+  PeopleOutlineRounded,
+  SchoolOutlined,
+  SettingsOutlined,
+  ChevronRightRounded,
+  CloseRounded,
 } from '@mui/icons-material'
 import {
   AppBar,
+  ThemeProvider,
   Avatar,
   Box,
   Button,
-  Divider,
   Drawer,
   IconButton,
   List,
@@ -25,179 +28,335 @@ import {
   ListItemIcon,
   ListItemText,
   Stack,
-  Switch,
   Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../features/auth/authSlice'
 import { toggleMode } from '../features/auth/uiSlice'
-
-const drawerWidth = 292
-const logoUrl = `${import.meta.env.BASE_URL}brand/logo_new.png`
-
+import { buildWorkspaceTheme } from '../app/workspaceTheme'
+const drawerWidth = 252
 const navItems = [
-  { label: 'Dashboard', path: '/', icon: <DashboardRounded /> },
-  { label: 'Users', path: '/users', icon: <PeopleRounded /> },
-  { label: 'Learning Content', path: '/resources/courses', icon: <SchoolRounded /> },
-  { label: 'Stories', path: '/resources/stories', icon: <ArticleRounded /> },
-  { label: 'Payments', path: '/payments', icon: <PaymentsRounded /> },
-  { label: 'Subscriptions', path: '/subscriptions', icon: <CardMembershipRounded /> },
-  { label: 'Notifications', path: '/notifications', icon: <NotificationsRounded /> },
-  { label: 'Settings', path: '/settings', icon: <SettingsRounded /> },
-]
+  {
+    label: 'Overview',
+    path: '/',
+    icon: <SpaceDashboardOutlined />,
+    group: 'WORKSPACE',
+  },
+  { label: 'Users', path: '/users', icon: <PeopleOutlineRounded /> },
+  {
+    label: 'Learning content',
+    path: '/learning',
+    icon: <SchoolOutlined />,
+  },
 
+  {
+    label: 'Payments',
+    path: '/payments',
+    icon: <PaymentsOutlined />,
+    group: 'OPERATIONS',
+  },
+  {
+    label: 'Subscriptions',
+    path: '/subscriptions',
+    icon: <CardMembershipOutlined />,
+  },
+  {
+    label: 'Notifications',
+    path: '/notifications',
+    icon: <NotificationsNoneRounded />,
+  },
+  { label: 'Media library', path: '/media', icon: <PermMediaOutlined /> },
+  { label: 'Audit history', path: '/audit', icon: <HistoryRounded /> },
+  { label: 'Settings', path: '/settings', icon: <SettingsOutlined /> },
+]
 export default function AdminLayout() {
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
-  const admin = useSelector((state) => state.auth.admin)
   const mode = useSelector((state) => state.ui.mode)
+  const theme = useMemo(() => buildWorkspaceTheme(mode), [mode])
+  return (
+    <ThemeProvider theme={theme}>
+      <WorkspaceLayout />
+    </ThemeProvider>
+  )
+}
+
+function WorkspaceLayout() {
+  const dispatch = useDispatch(),
+    navigate = useNavigate(),
+    { pathname } = useLocation()
+  const admin = useSelector((state) => state.auth.admin),
+    mode = useSelector((state) => state.ui.mode)
   const compact = useMediaQuery((theme) => theme.breakpoints.down('lg'))
   const [drawerOpen, setDrawerOpen] = useState(false)
-
-  const handleLogout = () => {
-    dispatch(logout())
-    navigate('/login', { replace: true })
-  }
-
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  const active = (item) =>
+    item.path === '/'
+      ? pathname === '/'
+      : item.path === '/resources/courses'
+        ? pathname.startsWith('/resources/') &&
+          pathname !== '/resources/stories'
+        : pathname.startsWith(item.path)
+  const section = navItems.find(active)?.label || 'Workspace'
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Stack spacing={1.5} sx={{ px: 2.6, py: 2.6 }}>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-          <Box
-            component="img"
-            src={logoUrl}
-            alt="LangLex"
+    <Box
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: (theme) => theme.workspace.sidebar,
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={1.25}
+        sx={{ px: 2.5, py: 2.5, alignItems: 'center', flexShrink: 0 }}
+      >
+        <Box
+          component="img"
+          src={`${import.meta.env.BASE_URL}brand/logo_new.png`}
+          alt="LangLex"
+          sx={{
+            width: 42,
+            height: 42,
+            objectFit: 'contain',
+            bgcolor: '#fff',
+            borderRadius: 2,
+            p: 0.4,
+          }}
+        />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h6"
+            sx={{ fontSize: 20, lineHeight: 1.3, letterSpacing: '-0.5px' }}
+          >
+            LangLex
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', fontSize: 11 }}
+          >
+            Administration
+          </Typography>
+        </Box>
+        {compact && (
+          <IconButton
+            aria-label="Close navigation"
+            onClick={() => setDrawerOpen(false)}
+          >
+            <CloseRounded />
+          </IconButton>
+        )}
+      </Stack>
+      <List
+        aria-label="Main navigation"
+        sx={{
+          px: 1.5,
+          py: 0.5,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'transparent transparent',
+          '&:hover, &:focus-within': { scrollbarColor: 'auto' },
+          '&::-webkit-scrollbar': { width: 4 },
+        }}
+      >
+        {navItems.map((item) => (
+          <Box key={item.path}>
+            {item.group && (
+              <Typography
+                sx={{
+                  px: 1.5,
+                  pt: item.path === '/' ? 0.5 : 2.25,
+                  pb: 1,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 1.3,
+                  color: 'text.secondary',
+                }}
+                color="text.secondary"
+              >
+                {item.group}
+              </Typography>
+            )}
+            <ListItemButton
+              component={Link}
+              to={item.path}
+              selected={active(item)}
+              aria-current={active(item) ? 'page' : undefined}
+              onClick={() => setDrawerOpen(false)}
+              sx={{
+                mb: 0.25,
+                minHeight: 44,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: '10px',
+                position: 'relative',
+                transition: 'background-color 160ms ease, color 160ms ease',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 12,
+                  bottom: 12,
+                  width: 3,
+                  borderRadius: 3,
+                  bgcolor: 'primary.main',
+                  opacity: active(item) ? 1 : 0,
+                },
+                color: 'text.secondary',
+                '&:hover, &.Mui-focusVisible': {
+                  bgcolor: 'action.hover',
+                  color: 'text.primary',
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'action.selected',
+                  color: 'primary.main',
+                  '&:hover, &.Mui-focusVisible': {
+                    bgcolor: 'action.selected',
+                    color: 'primary.main',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 34,
+                  color: 'inherit',
+                  '& svg': { fontSize: 21 },
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                slotProps={{
+                  primary: {
+                    sx: {
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      fontWeight: active(item) ? 700 : 500,
+                    },
+                  },
+                }}
+              />
+            </ListItemButton>
+          </Box>
+        ))}
+      </List>
+      <Box
+        sx={{
+          p: 1.5,
+          mt: 1,
+          flexShrink: 0,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor:
+            mode === 'dark' ? 'rgba(2,17,28,0.2)' : 'rgba(255,255,255,0.4)',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1.25}
+          sx={{ alignItems: 'center', p: 0.75, mb: 1 }}
+        >
+          <Avatar
             sx={{
-              width: 54,
-              height: 54,
-              objectFit: 'contain',
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
               flexShrink: 0,
-              bgcolor: '#FFFFFF',
-              border: 1,
-              borderColor: mode === 'dark' ? 'rgba(255,255,255,0.18)' : 'divider',
-              borderRadius: 2,
-              p: 0.4,
-              boxShadow: mode === 'dark' ? '0 10px 24px rgba(0,0,0,0.32)' : 'none',
+              bgcolor: 'action.selected',
+              color: 'primary.main',
+              fontSize: 12,
+              fontWeight: 700,
             }}
-          />
-          <Box>
-            <Typography variant="h5" sx={{ lineHeight: 1.05, fontSize: 20 }}>
-              LangLex
+          >
+            {(admin?.full_name || 'Admin')
+              .split(' ')
+              .map((part) => part[0])
+              .slice(0, 2)
+              .join('')}
+          </Avatar>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              noWrap
+              variant="body2"
+              title={admin?.full_name || 'Administrator'}
+              sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.7 }}
+            >
+              {admin?.full_name || 'Administrator'}
             </Typography>
-            <Typography variant="body2" color="text.secondary" fontWeight={600}>
-              Admin Console
+            <Typography
+              noWrap
+              component="p"
+              variant="caption"
+              title={admin?.email}
+              sx={{ fontSize: 10, color: 'text.secondary', lineHeight: 1.6 }}
+            >
+              {admin?.email}
             </Typography>
           </Box>
         </Stack>
-      </Stack>
-      <Divider />
-      <List sx={{ px: 1.6, py: 2, flex: 1 }}>
-        {navItems.map((item) => (
-          <ListItemButton
-            key={item.path}
-            component={NavLink}
-            to={item.path}
-            end={item.path === '/'}
-            onClick={() => setDrawerOpen(false)}
-            sx={{
-              mb: 0.8,
-              minHeight: 52,
-              borderRadius: 2,
-              color: 'text.primary',
-              transition: 'background 160ms ease, color 160ms ease, transform 160ms ease',
-              '& .MuiListItemIcon-root': { color: '#77718E' },
-              '&:hover': {
-                bgcolor: '#F3EEFB',
-                transform: 'translateX(2px)',
-              },
-              '&.active': {
-                bgcolor: 'transparent',
-                backgroundImage: 'linear-gradient(135deg, #8E5CE6 0%, #7B3FE7 100%)',
-                color: 'primary.contrastText',
-                boxShadow: '0 12px 28px rgba(126, 72, 224, 0.26)',
-                '& .MuiListItemIcon-root': { color: 'inherit' },
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 42 }}>{item.icon}</ListItemIcon>
-            <ListItemText
-              primary={
-                <Typography component="span" fontWeight={800} fontSize={15}>
-                  {item.label}
-                </Typography>
-              }
-            />
-          </ListItemButton>
-        ))}
-      </List>
-      <Box sx={{ px: 2, pb: 2.2 }}>
-        <Stack
-          spacing={1.4}
+        <Button
+          fullWidth
+          startIcon={<LogoutRounded sx={{ fontSize: '18px !important' }} />}
           sx={{
-            borderTop: 1,
+            justifyContent: 'flex-start',
+            px: 1.5,
+            minHeight: 44,
+            color: 'text.secondary',
+            fontSize: 12,
+            borderRadius: '10px',
+            border: 1,
             borderColor: 'divider',
-            pt: 1.8,
+            bgcolor: 'transparent',
+            '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+          }}
+          onClick={() => {
+            dispatch(logout())
+            navigate('/login', { replace: true })
           }}
         >
-          <Stack
-            direction="row"
-            spacing={1.2}
-            sx={{
-              alignItems: 'center',
-              px: 1,
-            }}
-          >
-            <Avatar
-              sx={{
-                width: 42,
-                height: 42,
-                bgcolor: '#F0E7FF',
-                backgroundImage: 'linear-gradient(135deg, #F0E7FF 0%, #E3F1EC 100%)',
-                color: 'primary.main',
-                fontWeight: 900,
-              }}
-            >
-              CT
-            </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                Administrator
-              </Typography>
-              <Typography variant="body2" fontWeight={800} noWrap>
-                {admin?.full_name || 'Crisant Technologies'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {admin?.email}
-              </Typography>
-            </Box>
-          </Stack>
-          <Button
-            startIcon={<LogoutRounded />}
-            onClick={handleLogout}
-            fullWidth
-            variant="text"
-            sx={{
-              justifyContent: 'flex-start',
-              color: 'primary.main',
-              fontWeight: 800,
-              px: 1,
-              bgcolor: 'rgba(142, 92, 230, 0.08)',
-              '&:hover': { bgcolor: 'rgba(142, 92, 230, 0.13)' },
-            }}
-          >
-            Log out
-          </Button>
-        </Stack>
+          Log out
+        </Button>
       </Box>
     </Box>
   )
-
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        color: 'text.primary',
+        backgroundColor: 'background.default',
+        backgroundImage: (theme) => theme.workspace.background,
+        backgroundAttachment: 'fixed',
+        '& *:focus-visible': { outlineColor: 'primary.main' },
+      }}
+    >
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'fixed',
+          top: -100,
+          left: 16,
+          zIndex: 1500,
+          p: 2,
+          bgcolor: 'background.paper',
+          '&:focus': { top: 8 },
+        }}
+      >
+        Skip to content
+      </Box>
       <AppBar
         position="fixed"
         color="inherit"
@@ -205,34 +364,72 @@ export default function AdminLayout() {
         sx={{
           borderBottom: 1,
           borderColor: 'divider',
+          backgroundColor: (theme) => theme.workspace.header,
+          backdropFilter: 'blur(18px)',
           width: { lg: `calc(100% - ${drawerWidth}px)` },
-          ml: { lg: `${drawerWidth}px` },
         }}
       >
-        <Toolbar sx={{ minHeight: 68, px: { xs: 2, md: 3.5 } }}>
-          {compact ? (
-            <IconButton edge="start" onClick={() => setDrawerOpen(true)} sx={{ mr: 1 }}>
+        <Toolbar sx={{ gap: 1, minHeight: 68, px: { xs: 2, md: 4 } }}>
+          {compact && (
+            <IconButton
+              aria-label="Open navigation"
+              onClick={() => setDrawerOpen(true)}
+            >
               <MenuRounded />
             </IconButton>
-          ) : null}
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="body1" color="text.primary" fontWeight={700}>
-              Administrative workspace
+          )}
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', flex: 1 }}
+          >
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: { xs: 'none', sm: 'block' } }}
+            >
+              Workspace
             </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            {mode === 'light' ? <LightModeRounded color="action" /> : <DarkModeRounded color="action" />}
-            <Switch
-              checked={mode === 'dark'}
-              onChange={() => dispatch(toggleMode())}
-              color="primary"
-              slotProps={{ input: { 'aria-label': 'Toggle color mode' } }}
+            <ChevronRightRounded
+              sx={{
+                fontSize: 16,
+                color: 'text.secondary',
+                display: { xs: 'none', sm: 'block' },
+              }}
             />
+            <Typography variant="body2" fontWeight={600}>
+              {section}
+            </Typography>
           </Stack>
+          <Tooltip
+            title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            <IconButton
+              aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+              onClick={() => dispatch(toggleMode())}
+            >
+              {mode === 'dark' ? (
+                <LightModeRounded fontSize="small" />
+              ) : (
+                <DarkModeRounded fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+          <Avatar
+            sx={{
+              width: 32,
+              height: 32,
+              ml: 1,
+              bgcolor: 'action.selected',
+              color: 'primary.main',
+              fontSize: 12,
+            }}
+          >
+            {admin?.full_name?.[0] || 'A'}
+          </Avatar>
         </Toolbar>
       </AppBar>
-
-      <Box component="nav" sx={{ width: { lg: drawerWidth }, flexShrink: { lg: 0 } }}>
+      <Box component="nav" sx={{ width: { lg: drawerWidth }, flexShrink: 0 }}>
         <Drawer
           variant={compact ? 'temporary' : 'permanent'}
           open={compact ? drawerOpen : true}
@@ -241,30 +438,30 @@ export default function AdminLayout() {
           sx={{
             '& .MuiDrawer-paper': {
               width: drawerWidth,
-              borderRight: 1,
               borderColor: 'divider',
-              bgcolor: 'background.paper',
-              boxShadow: '8px 0 30px rgba(38, 30, 78, 0.04)',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
             },
           }}
         >
           {drawer}
         </Drawer>
       </Box>
-
       <Box
         component="main"
+        id="main-content"
+        tabIndex={-1}
         sx={{
-          flexGrow: 1,
-          width: { xs: '100%', lg: `calc(100% - ${drawerWidth}px)` },
-          maxWidth: { xs: '100vw', lg: 'none' },
+          flex: 1,
           minWidth: 0,
-          overflowX: 'clip',
-          px: { xs: 2, md: 3.2 },
-          py: { xs: 10, md: 10.8 },
+          px: { xs: 2, md: 4 },
+          pt: { xs: 11, md: 12 },
+          pb: 5,
         }}
       >
-        <Outlet />
+        <Box sx={{ maxWidth: 1600, mx: 'auto' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   )

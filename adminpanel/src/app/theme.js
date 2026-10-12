@@ -1,112 +1,127 @@
 import { createTheme } from '@mui/material/styles'
 
-const brand = {
-  primary: '#8E5CE6',
-  primaryDark: '#58369F',
-  secondary: '#5C9B81',
-  ink: '#1E1B29',
-  muted: '#716981',
-  paper: '#FFFFFF',
-  canvas: '#FBFAFE',
-  line: '#E8E3F0',
-  warning: '#B7782E',
-  danger: '#C93C4D',
-}
-
+const brand = { primary: '#7041CB', secondary: '#277C64' }
 export function buildTheme(mode = 'light') {
   const dark = mode === 'dark'
-
+  const line = dark ? '#303443' : '#E6E8EF'
   return createTheme({
     palette: {
       mode,
       primary: {
-        main: brand.primary,
-        dark: brand.primaryDark,
+        main: dark ? '#BC9AFF' : brand.primary,
+        contrastText: dark ? '#201333' : '#FFFFFF',
       },
-      secondary: {
-        main: brand.secondary,
-      },
-      success: {
-        main: brand.secondary,
-      },
-      warning: {
-        main: brand.warning,
-      },
-      error: {
-        main: brand.danger,
-      },
+      secondary: { main: dark ? '#78D7B5' : brand.secondary },
+      success: { main: dark ? '#78D7B5' : '#237556' },
+      warning: { main: dark ? '#EBC176' : '#98600D' },
+      error: { main: dark ? '#FF9FAD' : '#BC304B' },
       background: {
-        default: dark ? '#111018' : brand.canvas,
-        paper: dark ? '#191722' : brand.paper,
+        default: dark ? '#11131B' : '#F7F8FC',
+        paper: dark ? '#1A1D28' : '#FFFFFF',
       },
       text: {
-        primary: dark ? '#F4F1FA' : brand.ink,
-        secondary: dark ? '#B8B0C7' : brand.muted,
+        primary: dark ? '#F1F2F8' : '#202437',
+        secondary: dark ? '#ABB1C5' : '#646C82',
       },
-      divider: dark ? '#292637' : brand.line,
+      divider: line,
+      action: {
+        hover: dark ? '#272B3A' : '#F1EDF9',
+        selected: dark ? '#33264C' : '#EEE7FA',
+      },
     },
     typography: {
-      fontFamily: 'Montserrat, Inter, ui-sans-serif, system-ui, sans-serif',
-      h1: { letterSpacing: 0, fontWeight: 700 },
-      h2: { letterSpacing: 0, fontWeight: 700 },
-      h3: { letterSpacing: 0, fontWeight: 700 },
-      h4: { letterSpacing: 0, fontWeight: 700 },
-      h5: { letterSpacing: 0, fontWeight: 700 },
-      h6: { letterSpacing: 0, fontWeight: 700 },
-      button: { textTransform: 'none', fontWeight: 700, letterSpacing: 0 },
+      fontFamily: 'Montserrat, ui-sans-serif, system-ui, sans-serif',
+      fontSize: 13,
+      h1: { fontWeight: 700 },
+      h2: { fontWeight: 700 },
+      h3: { fontWeight: 700 },
+      h4: { fontWeight: 700, letterSpacing: '-0.7px' },
+      h5: { fontWeight: 700 },
+      h6: { fontWeight: 700, fontSize: '1rem' },
+      body1: { lineHeight: 1.65 },
+      body2: { lineHeight: 1.6 },
+      button: { textTransform: 'none', fontWeight: 600 },
     },
-    shape: {
-      borderRadius: 8,
-    },
+    shape: { borderRadius: 12 },
     components: {
-      MuiButton: {
+      MuiCssBaseline: {
         styleOverrides: {
-          root: {
-            minHeight: 42,
-            borderRadius: 8,
+          body: { colorScheme: mode },
+          '::-webkit-scrollbar-thumb': {
+            backgroundColor: dark ? '#42485C' : '#CFD3E0',
           },
-          containedPrimary: {
-            backgroundImage: 'linear-gradient(135deg, #8E5CE6 0%, #7B3FE7 100%)',
-            boxShadow: '0 12px 28px rgba(126, 72, 224, 0.28)',
+          '*:focus-visible': {
+            outline: `3px solid ${dark ? '#BC9AFF' : '#7041CB'}`,
+            outlineOffset: 3,
           },
         },
+      },
+      MuiButton: {
+        defaultProps: { disableElevation: true },
+        styleOverrides: {
+          root: { minHeight: 44, borderRadius: 8, paddingInline: 18 },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: { root: { minWidth: 44, minHeight: 44 } },
       },
       MuiCard: {
         styleOverrides: {
           root: {
-            border: `1px solid ${dark ? '#292637' : brand.line}`,
-            boxShadow: dark
-              ? '0 18px 40px rgba(0,0,0,0.28)'
-              : '0 18px 46px rgba(48,34,75,0.07)',
-            borderRadius: 8,
+            border: `1px solid ${line}`,
+            boxShadow: 'none',
+            borderRadius: 14,
           },
         },
       },
-      MuiDrawer: {
+      MuiCardContent: {
         styleOverrides: {
-          paper: {
-            backgroundImage: 'none',
-          },
+          root: { padding: 24, '&:last-child': { paddingBottom: 24 } },
         },
       },
-      MuiPaper: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
+      MuiOutlinedInput: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-          },
+          root: { borderRadius: 8, minHeight: 44 },
+          notchedOutline: { borderColor: line },
         },
       },
       MuiTableCell: {
         styleOverrides: {
+          root: { borderColor: line, padding: '14px 18px', fontSize: 13 },
           head: {
-            fontWeight: 700,
-            color: dark ? '#DCD5EA' : '#4A4357',
-            backgroundColor: dark ? '#1F1C2A' : '#F0ECF7',
+            fontWeight: 600,
+            color: dark ? '#C2C7D8' : '#555F77',
+            backgroundColor: dark ? '#202430' : '#F8F9FC',
+            whiteSpace: 'nowrap',
           },
         },
       },
+      MuiTablePagination: {
+        styleOverrides: {
+          toolbar: { flexWrap: 'wrap', paddingBlock: 8 },
+          selectLabel: { marginBlock: 4 },
+          displayedRows: { marginBlock: 4 },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: { minHeight: 48, textTransform: 'none', fontWeight: 600 },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: { border: `1px solid ${line}`, borderRadius: 16 },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: { root: { fontSize: 20, padding: '24px 24px 18px' } },
+      },
+      MuiChip: {
+        styleOverrides: { root: { borderRadius: 6, fontWeight: 600 } },
+      },
+      MuiTooltip: { defaultProps: { arrow: true } },
     },
   })
 }
-
 export { brand }

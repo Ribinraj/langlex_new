@@ -1,8 +1,14 @@
-import { format, formatDistanceToNowStrict, isValid, parseISO } from 'date-fns'
+import {
+  format,
+  formatDistanceToNowStrict,
+  isValid,
+  parse,
+  parseISO,
+} from 'date-fns'
 
 export function formatDate(value, pattern = 'dd MMM yyyy') {
   if (!value) return '-'
-  const date = typeof value === 'string' ? parseISO(value) : new Date(value)
+  const date = parseDate(value)
   return isValid(date) ? format(date, pattern) : '-'
 }
 
@@ -12,7 +18,7 @@ export function formatDateTime(value) {
 
 export function timeAgo(value) {
   if (!value) return '-'
-  const date = typeof value === 'string' ? parseISO(value) : new Date(value)
+  const date = parseDate(value)
   return isValid(date) ? `${formatDistanceToNowStrict(date)} ago` : '-'
 }
 
@@ -31,4 +37,11 @@ export function number(value) {
 
 export function percent(value) {
   return `${Math.round(Number(value || 0))}%`
+}
+
+function parseDate(value) {
+  if (typeof value !== 'string') return new Date(value)
+  if (/^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(value))
+    return parse(value, 'dd/MM/yy HH:mm', new Date(2026, 0, 1))
+  return parseISO(value)
 }

@@ -12,12 +12,18 @@ export default function ConfirmDialog({
   title = 'Confirm action',
   body,
   confirmLabel = 'Confirm',
+  confirmColor = 'error',
   loading = false,
   onClose,
   onConfirm,
 }) {
   return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onClose}
+      maxWidth="xs"
+      fullWidth
+    >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         {typeof body === 'string' ? (
@@ -30,7 +36,12 @@ export default function ConfirmDialog({
         <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button color="error" variant="contained" onClick={onConfirm} disabled={loading}>
+        <Button
+          color={confirmColor}
+          variant="contained"
+          onClick={onConfirm}
+          disabled={loading}
+        >
           {loading ? 'Working...' : confirmLabel}
         </Button>
       </DialogActions>

@@ -1,3 +1,4 @@
+import 'package:langlex_new_app/core/app_toast.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -36,6 +37,10 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
   Timer? _resendTimer;
+  Timer? _expiryTimer;
+  String? _displayCode;
+  bool _previewMode = false;
+  DateTime? _expiresAt;
   int _resendSecondsRemaining = _defaultResendSeconds;
 
   @override
@@ -61,16 +66,41 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
         );
 
     _entranceController.forward();
-    _startResendTimer(_defaultResendSeconds);
+    final state = context.read<AuthBloc>().state;
+    if (state is AuthOtpSent && state.mobileNumber == widget.mobileNumber) {
+      _applyChallenge(state);
+    } else {
+      _startResendTimer(_defaultResendSeconds);
+    }
   }
 
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _expiryTimer?.cancel();
     _otpController.dispose();
     _otpFocusNode.dispose();
     _entranceController.dispose();
     super.dispose();
+  }
+
+  void _applyChallenge(AuthOtpSent state) {
+    _expiryTimer?.cancel();
+    _displayCode = state.displayCode;
+    _previewMode = state.displayCode != null;
+    _expiresAt = state.expiresAt;
+    _otpController.clear();
+    final remaining = _expiresAt?.difference(DateTime.now());
+    if (remaining != null) {
+      if (remaining.isNegative) {
+        _displayCode = null;
+      } else {
+        _expiryTimer = Timer(remaining, () {
+          if (mounted) setState(() => _displayCode = null);
+        });
+      }
+    }
+    _startResendTimer(state.resendAfterSeconds);
   }
 
   void _verify() {
@@ -124,20 +154,10 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
         if (state is AuthAuthenticated) {
           context.go(AppRoutes.dashboard);
         } else if (state is AuthOtpSent) {
-          _startResendTimer(state.resendAfterSeconds);
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(
-                  state.isResend ? 'OTP sent again.' : 'OTP generated again.',
-                ),
-              ),
-            );
+          _applyChallenge(state);
+          AppToast.success(context, 'A new OTP is ready.');
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(state.message)));
+          AppToast.error(context, state.message);
         }
       },
       builder: (context, state) {
@@ -168,8 +188,12 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
                 SafeArea(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      const contentHeightEstimate = 386.0;
-                      final desiredTopGap = constraints.maxHeight * 0.25;
+                      final contentHeightEstimate = _displayCode != null
+                          ? 620.0
+                          : 386.0;
+                      final desiredTopGap =
+                          constraints.maxHeight *
+                          (_displayCode != null ? 0.12 : 0.25);
                       final maxTopGap =
                           constraints.maxHeight - contentHeightEstimate;
                       final topGap = desiredTopGap
@@ -184,9 +208,7 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
                         padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
                         child: Align(
                           alignment: Alignment.topCenter,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.topCenter,
+                          child: SingleChildScrollView(
                             child: SizedBox(
                               width: contentWidth,
                               child: AnimatedBuilder(
@@ -209,9 +231,11 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     SizedBox(height: topGap),
-                                    const _AuthHeader(
+                                    _AuthHeader(
                                       title: AppConstants.verifyOtpTitle,
-                                      subtitle: AppConstants.verifyOtpSubtitle,
+                                      subtitle: _previewMode
+                                          ? 'Enter the code shown below to continue.'
+                                          : AppConstants.verifyOtpSubtitle,
                                     ),
                                     ResponsiveSizedBox.height(3.5),
                                     _AuthCard(
@@ -219,6 +243,63 @@ class _VerifyOtpPageState extends State<VerifyOtpPage>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
+                                          if (_previewMode) ...[
+                                            Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF0E7FF),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                              child: Column(
+                                                children: [
+                                                  const Text(
+                                                    'Your temporary OTP',
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Appcolors
+                                                          .klibraryTitle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    _displayCode ?? 'Expired',
+                                                    key: const ValueKey(
+                                                      'otp-preview',
+                                                    ),
+                                                    style: const TextStyle(
+                                                      fontSize: 28,
+                                                      letterSpacing: 6,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Appcolors
+                                                          .kprimarycolor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    _displayCode == null
+                                                        ? 'This code expired. Request a new OTP.'
+                                                        : 'SMS delivery is not enabled yet. Use this code to continue.',
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                  if (_expiresAt != null)
+                                                    Text(
+                                                      'Valid until ${TimeOfDay.fromDateTime(_expiresAt!.toLocal()).format(context)}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 18),
+                                          ],
                                           const ResponsiveText(
                                             AppConstants.otpLabel,
                                             fontSize: 14,
@@ -349,32 +430,39 @@ class _AuthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Appcolors.kprimarycolor, Appcolors.kdashboardTeal],
-          ).createShader(bounds),
-          child: ResponsiveText(
-            title,
-            fontSize: 30,
-            weight: FontWeight.w800,
-            color: Appcolors.kwhitecolor,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .96),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Appcolors.kprimarycolor, Appcolors.kdashboardTeal],
+            ).createShader(bounds),
+            child: ResponsiveText(
+              title,
+              fontSize: 30,
+              weight: FontWeight.w800,
+              color: Appcolors.kwhitecolor,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+          ResponsiveSizedBox.height(1),
+          ResponsiveText(
+            subtitle,
+            fontSize: 14,
+            weight: FontWeight.w600,
+            color: Appcolors.ktextlight,
             textAlign: TextAlign.center,
             overflow: TextOverflow.visible,
+            height: 1.45,
           ),
-        ),
-        ResponsiveSizedBox.height(1),
-        ResponsiveText(
-          subtitle,
-          fontSize: 14,
-          weight: FontWeight.w600,
-          color: Appcolors.ktextlight,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.visible,
-          height: 1.45,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

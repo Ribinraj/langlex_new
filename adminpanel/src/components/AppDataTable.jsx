@@ -1,8 +1,9 @@
+import { useEffect } from 'react'
 import {
-  Box,
-  CircularProgress,
   IconButton,
+  Button,
   Paper,
+  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -12,107 +13,153 @@ import {
   TablePagination,
   TableRow,
   Tooltip,
-  Typography,
 } from '@mui/material'
-
+import EmptyState from './EmptyState'
 export default function AppDataTable({
   columns,
   rows = [],
   loading,
+  error,
+  onRetry,
   emptyMessage = 'No records found',
-  page,
-  limit,
+  emptyDescription,
+  page = 1,
+  limit = 10,
   total,
   onPageChange,
   onLimitChange,
   actions = [],
   getRowId = (row) => row.id,
 }) {
+  const lastPage = Math.max(1, Math.ceil((total || 0) / limit))
+  useEffect(() => {
+    if (!loading && !error && typeof total === 'number' && page > lastPage)
+      onPageChange?.(lastPage)
+  }, [loading, error, total, page, lastPage, onPageChange])
+  const allColumns = actions.length
+    ? [...columns, { key: '_actions', label: 'Actions' }]
+    : columns
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <TableContainer sx={{ maxWidth: '100%', minHeight: loading ? 360 : 0 }}>
+      <TableContainer sx={{ maxWidth: '100%' }} aria-busy={Boolean(loading)}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              {columns.map((column) => (
-                <TableCell key={column.key} sx={{ minWidth: column.minWidth }}>
+              {allColumns.map((column) => (
+                <TableCell
+                  key={column.key}
+                  align={column.key === '_actions' ? 'right' : undefined}
+                  sx={{ minWidth: column.minWidth ?? 120 }}
+                >
                   {column.label}
                 </TableCell>
               ))}
-              {actions.length ? <TableCell align="right">Actions</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + (actions.length ? 1 : 0)}>
-                  <Stack sx={{ py: 8, alignItems: 'center', justifyContent: 'center' }}>
-                    <CircularProgress size={32} />
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ) : rows.length ? (
-              rows.map((row) => (
-                <TableRow hover key={getRowId(row)}>
-                  {columns.map((column) => (
-                    <TableCell key={column.key}>
-                      {column.render ? column.render(row) : safeText(row[column.key])}
-                    </TableCell>
+            {loading
+              ? Array.from({ length: 5 }, (_, index) => (
+                  <TableRow key={index}>
+                    {allColumns.map((column) => (
+                      <TableCell key={column.key}>
+                        <Skeleton
+                          animation="wave"
+                          height={32}
+                          sx={{ minWidth: 70, maxWidth: 210 }}
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              : error || !rows.length
+                ? null
+                : rows.map((row) => (
+                    <TableRow hover key={getRowId(row)}>
+                      {columns.map((column) => (
+                        <TableCell
+                          key={column.key}
+                          sx={{
+                            maxWidth: column.maxWidth || 360,
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {column.render
+                            ? column.render(row)
+                            : safeText(row[column.key])}
+                        </TableCell>
+                      ))}
+                      {!!actions.length && (
+                        <TableCell align="right">
+                          <Stack
+                            direction="row"
+                            spacing={0.25}
+                            sx={{ justifyContent: 'flex-end' }}
+                          >
+                            {actions.map((action) => (
+                              <Tooltip key={action.label} title={action.label}>
+                                <span>
+                                  {action.showLabel ? (
+                                    <Button
+                                      size="small"
+                                      startIcon={action.icon}
+                                      onClick={() => action.onClick(row)}
+                                      disabled={action.disabled?.(row)}
+                                      sx={{
+                                        whiteSpace: 'nowrap',
+                                        minHeight: 44,
+                                      }}
+                                    >
+                                      {action.label}
+                                    </Button>
+                                  ) : (
+                                    <IconButton
+                                      aria-label={`${action.label} ${row.title || row.full_name || `record ${row.id}`}`}
+                                      color={action.color || 'default'}
+                                      onClick={() => action.onClick(row)}
+                                      disabled={action.disabled?.(row)}
+                                    >
+                                      {action.icon}
+                                    </IconButton>
+                                  )}
+                                </span>
+                              </Tooltip>
+                            ))}
+                          </Stack>
+                        </TableCell>
+                      )}
+                    </TableRow>
                   ))}
-                  {actions.length ? (
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-                        {actions.map((action) => (
-                          <Tooltip title={action.label} key={action.label}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                color={action.color || 'default'}
-                                onClick={() => action.onClick(row)}
-                                disabled={action.disabled?.(row)}
-                              >
-                                {action.icon}
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        ))}
-                      </Stack>
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length + (actions.length ? 1 : 0)}>
-                  <Box sx={{ py: 8, textAlign: 'center' }}>
-                    <Typography fontWeight={700}>{emptyMessage}</Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Adjust filters or create a new record.
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
-      {typeof total === 'number' ? (
+      {!loading && (error || !rows.length) && (
+        <EmptyState
+          title={emptyMessage}
+          description={emptyDescription}
+          error={error}
+          onRetry={error ? onRetry : undefined}
+        />
+      )}
+      {typeof total === 'number' && !error && (
         <TablePagination
           component="div"
           count={total}
-          page={Math.max(page - 1, 0)}
+          page={Math.min(Math.max(page - 1, 0), lastPage - 1)}
           rowsPerPage={limit}
-          onPageChange={(_, nextPage) => onPageChange(nextPage + 1)}
-          onRowsPerPageChange={(event) => onLimitChange(Number(event.target.value))}
+          onPageChange={(_, next) => onPageChange(next + 1)}
+          onRowsPerPageChange={(event) =>
+            onLimitChange(Number(event.target.value))
+          }
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
-      ) : null}
+      )}
     </Paper>
   )
 }
-
 function safeText(value) {
-  if (value == null || value === '') return '-'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
+  return value == null || value === ''
+    ? '—'
+    : typeof value === 'object'
+      ? JSON.stringify(value)
+      : String(value)
 }

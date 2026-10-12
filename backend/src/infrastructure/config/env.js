@@ -31,6 +31,7 @@ module.exports = {
     expiresIn: process.env.JWT_EXPIRES_IN || '30d',
   },
   otp: {
+    exposeCode: process.env.OTP_EXPOSE_CODE === 'true',
     expiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES || 5),
     resendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 30),
     fixedMobileNumber: process.env.OTP_FIXED_MOBILE_NUMBER || '9946802969',

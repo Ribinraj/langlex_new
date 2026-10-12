@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:langlex_new_app/core/network_services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/api_exception.dart';
 import 'package:langlex_new_app/features/authentication/auth_repo.dart';
@@ -16,9 +18,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<VerifyOtpEvent>(_onVerifyOtp);
     on<LogoutEvent>(_onLogout);
     on<UserChangedEvent>(_onUserChanged);
+    on<SessionEndedEvent>(
+      (event, emit) => emit(AuthSessionEnded(event.message)),
+    );
+    _sessionSubscription = DioClient.sessionEnded.listen((message) {
+      if (!isClosed) add(SessionEndedEvent(message));
+    });
   }
 
   final AuthRepository _repository;
+  late final StreamSubscription<String> _sessionSubscription;
+
+  @override
+  Future<void> close() async {
+    await _sessionSubscription.cancel();
+    return super.close();
+  }
 
   Future<void> _onCheckLoginStatus(
     CheckLoginStatusEvent event,
@@ -58,13 +73,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       emit(AuthUserExists(mobileNumber: mobileNumber));
-      final resendAfterSeconds = await _repository.sendOtp(
-        mobileNumber: mobileNumber,
-      );
+      final challenge = await _repository.sendOtp(mobileNumber: mobileNumber);
       emit(
         AuthOtpSent(
           mobileNumber: mobileNumber,
-          resendAfterSeconds: resendAfterSeconds,
+          resendAfterSeconds: challenge.resendAfterSeconds,
+          displayCode: challenge.displayCode,
+          expiresAt: challenge.expiresAt,
         ),
       );
     } on ApiException catch (error) {
@@ -95,7 +110,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      final resendAfterSeconds = await _repository.register(
+      final challenge = await _repository.register(
         fullName: fullName,
         mobileNumber: mobileNumber,
         school: school,
@@ -106,7 +121,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(
         AuthOtpSent(
           mobileNumber: mobileNumber,
-          resendAfterSeconds: resendAfterSeconds,
+          resendAfterSeconds: challenge.resendAfterSeconds,
+          displayCode: challenge.displayCode,
+          expiresAt: challenge.expiresAt,
         ),
       );
     } on ApiException catch (error) {
@@ -133,7 +150,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(
             AuthOtpSent(
               mobileNumber: result.mobileNumber,
-              resendAfterSeconds: result.resendAfterSeconds,
+              resendAfterSeconds: result.challenge.resendAfterSeconds,
+              displayCode: result.challenge.displayCode,
+              expiresAt: result.challenge.expiresAt,
             ),
           );
       }
@@ -168,7 +187,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      final resendAfterSeconds = await _repository.completeSocialRegistration(
+      final challenge = await _repository.completeSocialRegistration(
         fullName: fullName,
         mobileNumber: mobileNumber,
         school: school,
@@ -179,7 +198,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(
         AuthOtpSent(
           mobileNumber: mobileNumber,
-          resendAfterSeconds: resendAfterSeconds,
+          resendAfterSeconds: challenge.resendAfterSeconds,
+          displayCode: challenge.displayCode,
+          expiresAt: challenge.expiresAt,
         ),
       );
     } on ApiException catch (error) {
@@ -199,13 +220,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      final resendAfterSeconds = await _repository.sendOtp(
-        mobileNumber: mobileNumber,
-      );
+      final challenge = await _repository.sendOtp(mobileNumber: mobileNumber);
       emit(
         AuthOtpSent(
           mobileNumber: mobileNumber,
-          resendAfterSeconds: resendAfterSeconds,
+          resendAfterSeconds: challenge.resendAfterSeconds,
+          displayCode: challenge.displayCode,
+          expiresAt: challenge.expiresAt,
         ),
       );
     } on ApiException catch (error) {
@@ -228,13 +249,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(const AuthLoading());
     try {
-      final resendAfterSeconds = await _repository.resendOtp(
-        mobileNumber: mobileNumber,
-      );
+      final challenge = await _repository.resendOtp(mobileNumber: mobileNumber);
       emit(
         AuthOtpSent(
           mobileNumber: mobileNumber,
-          resendAfterSeconds: resendAfterSeconds,
+          resendAfterSeconds: challenge.resendAfterSeconds,
+          displayCode: challenge.displayCode,
+          expiresAt: challenge.expiresAt,
           isResend: true,
         ),
       );

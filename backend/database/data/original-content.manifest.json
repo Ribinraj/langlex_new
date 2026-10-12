@@ -1,0 +1,20 @@
+{
+  "version": "original-20260713-v1",
+  "source": "https://kids.langlex.com/20260713_digitsta_langlex.sql",
+  "sourceSha256": "8bcdccd5e6f4b47e1810bc75c6fc7cabc5b18cc623d3dac4ff5d19d4b651c14d",
+  "counts": {
+    "categories": 25,
+    "subcategories": 379,
+    "courses": 192,
+    "Content": 8371,
+    "Alphabets": 2371,
+    "quizz": 3771,
+    "phonics_category": 2,
+    "phonics_courses": 130,
+    "Phonics": 1226,
+    "stories": 108,
+    "site_language": 4,
+    "subsc_plans": 2
+  },
+  "catalogSha256": "3e7c6b83191697ba5d1aa7db6c1c4da6b15a84111becd0dad1014c0285e65492"
+}

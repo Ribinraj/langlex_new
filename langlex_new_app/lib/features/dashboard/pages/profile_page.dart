@@ -1,3 +1,8 @@
+import 'package:langlex_new_app/features/dashboard/widgets/sound_effects_setting.dart';
+import 'package:langlex_new_app/features/progress/progress_widgets.dart';
+import 'package:langlex_new_app/features/progress/progress_page.dart';
+import 'package:langlex_new_app/features/learning/widgets/content_shimmers.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,7 +25,9 @@ import 'package:langlex_new_app/features/learning/widgets/media_widgets.dart';
 import 'package:langlex_new_app/features/payments/pages/payment_checkout_page.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.showBack = true});
+
+  final bool showBack;
 
   @override
   Widget build(BuildContext context) {
@@ -32,281 +39,66 @@ class ProfilePage extends StatelessWidget {
         final t = AppLocalizations(homeLanguage);
         final catalog = state is LearningLoaded ? state.catalog : null;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 132),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ProfileHeroSection(t: t),
-              Transform.translate(
-                offset: const Offset(0, -62),
-                child: Padding(
-                  padding: ResponsiveUtils.pagePadding(
-                    context,
-                    mobileHorizontalPercent: 6,
-                    tabletHorizontal: 42,
-                    desktopHorizontal: 56,
-                  ).copyWith(top: 0),
-                  child: ResponsiveUtils.constrainWidth(
-                    context: context,
-                    maxWidth: 680,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ProfileSummaryCard(t: t),
-                        ResponsiveSizedBox.height(1.4),
-                        _EditProfileTile(t: t, homeLanguage: homeLanguage),
-                        ResponsiveSizedBox.height(1.4),
-                        _LearningProgressCard(t: t, catalog: catalog),
-                        ResponsiveSizedBox.height(1.4),
-                        _UpgradePlanTile(t: t, homeLanguage: homeLanguage),
-                        ResponsiveSizedBox.height(1.4),
-                        _ProfileDetailsCard(t: t),
-                        ResponsiveSizedBox.height(1.4),
-                        DashboardActionTile(
-                          icon: Icons.logout_rounded,
-                          title: t.logout,
-                          subtitle: t.signOutSubtitle,
-                          accent: Appcolors.kredcolor,
-                          surface: Appcolors.kmetricLowStockSurface,
-                          onTap: () =>
-                              context.read<AuthBloc>().add(const LogoutEvent()),
-                        ),
-                      ],
+        return FlowScrollView(
+          header: FlowPageHeader(
+            title: t.profile,
+            showBack: showBack,
+            subtitle: t.profileSubtitle,
+            artwork: KidsLearningAssets.profileLionIcon,
+          ),
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Padding(
+            padding: ResponsiveUtils.pagePadding(
+              context,
+              mobileHorizontalPercent: 6,
+              tabletHorizontal: 42,
+              desktopHorizontal: 56,
+            ).copyWith(top: 0),
+            child: ResponsiveUtils.constrainWidth(
+              context: context,
+              maxWidth: 680,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ProfileSummaryCard(t: t),
+                  ResponsiveSizedBox.height(1.4),
+                  ProgressOverviewCard(
+                    language: homeLanguage,
+                    onDetails: () => Navigator.of(context).push(
+                      playfulRoute(page: ProgressPage(language: homeLanguage)),
                     ),
                   ),
-                ),
+                  ResponsiveSizedBox.height(1.4),
+                  _EditProfileTile(t: t, homeLanguage: homeLanguage),
+                  ResponsiveSizedBox.height(1.4),
+                  if (state is LearningInitial || state is LearningLoading)
+                    LearningProgressShimmer(label: t.loading)
+                  else
+                    _LearningProgressCard(t: t, catalog: catalog),
+                  ResponsiveSizedBox.height(1.4),
+                  _UpgradePlanTile(t: t, homeLanguage: homeLanguage),
+                  ResponsiveSizedBox.height(1.4),
+                  SoundEffectsSetting(t: t),
+                  ResponsiveSizedBox.height(1.4),
+                  _ProfileDetailsCard(t: t),
+                  ResponsiveSizedBox.height(1.4),
+                  DashboardActionTile(
+                    icon: Icons.logout_rounded,
+                    title: t.logout,
+                    subtitle: t.signOutSubtitle,
+                    accent: Appcolors.kredcolor,
+                    surface: Appcolors.kmetricLowStockSurface,
+                    onTap: () =>
+                        context.read<AuthBloc>().add(const LogoutEvent()),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
     );
   }
-}
-
-class _ProfileHeroSection extends StatelessWidget {
-  const _ProfileHeroSection({required this.t});
-
-  final AppLocalizations t;
-
-  @override
-  Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final compact = width < 390;
-        final contentWidth = width > 680 ? 680.0 : width;
-        final sideInset = ((width - contentWidth) / 2) + (compact ? 22 : 28);
-        final heroHeight = topInset + (compact ? 208.0 : 226.0);
-        final mascotSize = compact ? 118.0 : 142.0;
-
-        return SizedBox(
-          height: heroHeight,
-          width: double.infinity,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Appcolors.klibrarySkyTop,
-                        Appcolors.klibrarySkyMiddle,
-                        Appcolors.klibrarySkyBottom,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -56,
-                bottom: 82,
-                child: _ProfileCloudAsset(width: 136, opacity: 0.96),
-              ),
-              Positioned(
-                right: -54,
-                bottom: 88,
-                child: _ProfileCloudAsset(width: 142, opacity: 0.98),
-              ),
-              Positioned(
-                right: sideInset + mascotSize - 10,
-                top: topInset + 52,
-                child: _ProfileCloudAsset(width: 58, opacity: 0.54),
-              ),
-              Positioned(
-                right: sideInset - 10,
-                top: topInset + 22,
-                child: SvgPicture.asset(
-                  KidsLearningAssets.profileLionIcon,
-                  width: mascotSize,
-                  height: mascotSize,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              Positioned(
-                right: sideInset + mascotSize - 20,
-                top: topInset + 32,
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 14,
-                  color: Appcolors.kgoalSparkle,
-                ),
-              ),
-              Positioned(
-                right: sideInset - 12,
-                top: topInset + 34,
-                child: Icon(
-                  Icons.favorite_rounded,
-                  size: compact ? 18 : 21,
-                  color: Appcolors.kdashboardPink.withValues(alpha: 0.72),
-                ),
-              ),
-              Positioned(
-                left: sideInset,
-                top: topInset + 12,
-                right: sideInset + mascotSize + 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              t.profile,
-                              maxLines: 1,
-                              style: GoogleFonts.montserrat(
-                                fontSize: compact ? 30 : 36,
-                                fontWeight: FontWeight.w900,
-                                color: Appcolors.klibraryTitle,
-                                height: 0.98,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Appcolors.kgoalSparkle,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ResponsiveText(
-                      t.profileSubtitle,
-                      fontSize: compact ? 13.5 : 15,
-                      weight: FontWeight.w600,
-                      color: Appcolors.klibrarySubtitle,
-                      overflow: TextOverflow.visible,
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 30,
-                height: 98,
-                child: CustomPaint(painter: _ProfileCloudBandPainter()),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: -1,
-                height: 42,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Appcolors.kscreenWarmBackground.withValues(alpha: 0),
-                          Appcolors.kscreenWarmBackground,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ProfileCloudAsset extends StatelessWidget {
-  const _ProfileCloudAsset({required this.width, required this.opacity});
-
-  final double width;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      KidsLearningAssets.cloudIcon,
-      width: width,
-      fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(
-        Appcolors.kwhitecolor.withValues(alpha: opacity),
-        BlendMode.srcIn,
-      ),
-    );
-  }
-}
-
-class _ProfileCloudBandPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Appcolors.kscreenWarmBackground.withValues(alpha: 0.98);
-    final path = Path()
-      ..moveTo(0, size.height * 0.54)
-      ..cubicTo(
-        size.width * 0.12,
-        size.height * 0.08,
-        size.width * 0.26,
-        size.height * 0.78,
-        size.width * 0.42,
-        size.height * 0.38,
-      )
-      ..cubicTo(
-        size.width * 0.55,
-        size.height * 0.02,
-        size.width * 0.68,
-        size.height * 0.78,
-        size.width * 0.82,
-        size.height * 0.34,
-      )
-      ..cubicTo(
-        size.width * 0.91,
-        size.height * 0.06,
-        size.width,
-        size.height * 0.32,
-        size.width,
-        size.height * 0.18,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _EditProfileTile extends StatelessWidget {
@@ -607,27 +399,15 @@ class _LearningProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _LearningProgressContent(
-      catalog: catalog,
-      t: t,
-      courseCount: catalog?.courses.length ?? 0,
-      quizCount: catalog?.quizQuestions.length ?? 0,
-    );
+    return _LearningProgressContent(catalog: catalog, t: t);
   }
 }
 
 class _LearningProgressContent extends StatelessWidget {
-  const _LearningProgressContent({
-    required this.catalog,
-    required this.t,
-    required this.courseCount,
-    required this.quizCount,
-  });
+  const _LearningProgressContent({required this.catalog, required this.t});
 
   final LearningCatalog? catalog;
   final AppLocalizations t;
-  final int courseCount;
-  final int quizCount;
 
   @override
   Widget build(BuildContext context) {
@@ -712,21 +492,13 @@ class _LearningProgressContent extends StatelessWidget {
                 label: '${t.student}: ${setup?.childName ?? t.loading}',
               ),
               _ProfilePill(
-                icon: Icons.home_rounded,
-                label: '${t.home}: ${setup?.primaryLanguage ?? t.loading}',
-              ),
-              _ProfilePill(
-                icon: Icons.menu_book_rounded,
-                label: '${t.learning}: ${setup?.learningLanguage ?? t.loading}',
+                icon: Icons.language_rounded,
+                label:
+                    '${t.languageLabel}: ${setup?.activeLanguage ?? t.loading}',
               ),
               _ProfilePill(
                 icon: Icons.star_rounded,
                 label: '${t.level}: ${setup?.level ?? t.loading}',
-              ),
-              _ProfilePill(
-                icon: Icons.schedule_rounded,
-                label:
-                    '${t.goal}: ${setup?.dailyGoalMinutes ?? 0} ${t.minutesShort}',
               ),
               _ProfilePill(
                 icon: Icons.card_giftcard_rounded,
@@ -744,54 +516,6 @@ class _LearningProgressContent extends StatelessWidget {
               overflow: TextOverflow.visible,
             ),
           ],
-          ResponsiveSizedBox.height(1.7),
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD9FFCA),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.star_rounded,
-                  color: Appcolors.klearningPlayfulGreen,
-                  size: 25,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(99),
-                  child: LinearProgressIndicator(
-                    value: courseCount == 0 ? 0 : 1,
-                    minHeight: 10,
-                    backgroundColor: Appcolors.ksoftPrimarySurface,
-                    valueColor: const AlwaysStoppedAnimation(
-                      Appcolors.kprimarycolor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SvgPicture.asset(
-                KidsLearningAssets.trophyIcon,
-                width: 37,
-                height: 37,
-                fit: BoxFit.contain,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: ResponsiveText(
-              t.courseQuizReady(courseCount, quizCount),
-              fontSize: 11.5,
-              weight: FontWeight.w800,
-              color: Appcolors.kdashboardMutedText,
-            ),
-          ),
         ],
       ),
     );

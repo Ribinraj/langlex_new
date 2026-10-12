@@ -1,3 +1,5 @@
+import 'package:langlex_new_app/core/app_toast.dart';
+import 'package:langlex_new_app/features/dashboard/widgets/flow_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:langlex_new_app/core/app_localizations.dart';
@@ -26,11 +28,8 @@ class LearningSetupPage extends StatefulWidget {
 
 class _LearningSetupPageState extends State<LearningSetupPage> {
   late final TextEditingController _childNameController;
-  late String _ageGroup;
   late String _primaryLanguage;
-  late String _learningLanguage;
   late String _level;
-  late int _dailyGoalMinutes;
   late int? _planId;
   late Set<String> _interests;
   bool _allowClose = false;
@@ -42,11 +41,8 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
     super.initState();
     final setup = catalog.setup;
     _childNameController = TextEditingController(text: setup.childName);
-    _ageGroup = _safeValue(setup.ageGroup, LearningSetupOptions.ageGroups);
     _primaryLanguage = _safeValue(setup.primaryLanguage, catalog.languages);
-    _learningLanguage = _safeValue(setup.learningLanguage, catalog.languages);
     _level = _safeValue(setup.level, LearningSetupOptions.academicLevels);
-    _dailyGoalMinutes = setup.dailyGoalMinutes;
     _planId = setup.planId;
     _interests = setup.interests.toSet();
   }
@@ -67,12 +63,9 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
       childName: _childNameController.text.trim().isEmpty
           ? AppLocalizations(_primaryLanguage).langLexLearner
           : _childNameController.text.trim(),
-      ageGroup: _ageGroup,
-      primaryLanguage: _primaryLanguage,
-      learningLanguage: _learningLanguage,
+      activeLanguage: _primaryLanguage,
       level: _level,
       interests: _interests.toList()..sort(),
-      dailyGoalMinutes: _dailyGoalMinutes,
       planId: _planId,
       isConfigured: true,
     );
@@ -96,27 +89,24 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
         if (state is! LearningLoaded) return;
         if (state.setupSaved) {
           setState(() => _allowClose = true);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(t.setupSaved)));
+          AppToast.success(context, t.setupSaved);
           Navigator.of(context).pop();
         }
         if (state.setupError != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(t.couldNotSaveLearningSetup)));
+          AppToast.error(context, t.couldNotSaveLearningSetup);
         }
       },
       child: PopScope(
         canPop: !widget.requiredSetup || _allowClose,
         child: Scaffold(
           backgroundColor: Appcolors.kscreenWarmBackground,
-          appBar: AppBar(
-            title: Text(t.learningSetup),
-            automaticallyImplyLeading: !widget.requiredSetup,
-          ),
+
           bottomNavigationBar: _SaveSetupBar(t: t, onSave: _save),
-          body: SingleChildScrollView(
+          body: FlowScrollView(
+            header: FlowPageHeader(
+              title: t.learningSetup,
+              showBack: !widget.requiredSetup,
+            ),
             padding: ResponsiveUtils.pagePadding(
               context,
               mobileHorizontalPercent: 6,
@@ -146,14 +136,6 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
                           textCapitalization: TextCapitalization.words,
                           decoration: _inputDecoration(t.childName),
                         ),
-                        ResponsiveSizedBox.height(1.4),
-                        _DropdownField(
-                          label: t.ageGroup,
-                          value: _ageGroup,
-                          items: LearningSetupOptions.ageGroups,
-                          onChanged: (value) =>
-                              setState(() => _ageGroup = value),
-                        ),
                       ],
                     ),
                   ),
@@ -165,19 +147,11 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
                         LearningSectionHeader(title: t.languagesAndLevel),
                         ResponsiveSizedBox.height(1.2),
                         _DropdownField(
-                          label: t.homeLanguage,
+                          label: t.languageLabel,
                           value: _primaryLanguage,
-                          items: catalog.languages,
+                          items: catalog.setup.selectedLanguages,
                           onChanged: (value) =>
                               setState(() => _primaryLanguage = value),
-                        ),
-                        ResponsiveSizedBox.height(1.4),
-                        _DropdownField(
-                          label: t.learningLanguage,
-                          value: _learningLanguage,
-                          items: catalog.languages,
-                          onChanged: (value) =>
-                              setState(() => _learningLanguage = value),
                         ),
                         ResponsiveSizedBox.height(1.4),
                         _DropdownField(
@@ -224,19 +198,6 @@ class _LearningSetupPageState extends State<LearningSetupPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        LearningSectionHeader(
-                          title: t.dailyGoal(_dailyGoalMinutes),
-                        ),
-                        Slider(
-                          value: _dailyGoalMinutes.toDouble(),
-                          min: 5,
-                          max: 60,
-                          divisions: 11,
-                          label: t.dailyGoal(_dailyGoalMinutes),
-                          onChanged: (value) =>
-                              setState(() => _dailyGoalMinutes = value.round()),
-                        ),
-                        ResponsiveSizedBox.height(1.2),
                         _DropdownField<int?>(
                           label: t.plan,
                           value: _planId,
